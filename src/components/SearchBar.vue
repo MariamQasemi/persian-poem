@@ -1,0 +1,191 @@
+<template>
+  <div class="search-bar">
+    <div class="search-container" :class="{ 'error': error }">
+      <input
+        v-model="localQuery"
+        @keyup.enter="performSearch"
+        @input="onInput"
+        type="text"
+        id="search-input"
+        name="search-query"
+        placeholder="جستجوی کلمه"
+        class="search-input"
+        :disabled="isLoading"
+      />
+      <button 
+        @click="performSearch" 
+        class="search-button"
+        :disabled="isLoading || !localQuery.trim()"
+      >
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21 21L16.514 16.506L21 21ZM19 10.5C19 15.194 15.194 19 10.5 19C5.806 19 2 15.194 2 10.5C2 5.806 5.806 2 10.5 2C15.194 2 19 5.806 19 10.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+    
+    <div v-if="error" class="error-message">
+      {{ error }}
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, watch } from 'vue'
+import { useSearchStore } from '../stores/search'
+import { ApiService } from '../services/api.js'
+
+const searchStore = useSearchStore()
+const localQuery = ref(searchStore.searchQuery)
+
+const { isLoading, error } = searchStore
+
+// Watch for external changes to search query
+watch(() => searchStore.searchQuery, (newQuery) => {
+  localQuery.value = newQuery
+})
+
+const onInput = () => {
+  searchStore.setSearchQuery(localQuery.value)
+  searchStore.clearError()
+}
+
+const performSearch = async () => {
+  if (!localQuery.value.trim()) return
+  
+  try {
+    searchStore.setLoading(true)
+    searchStore.clearError()
+    searchStore.resetPagination()
+    
+    // IMPORTANT: Set the search query in the store
+    searchStore.setSearchQuery(localQuery.value)
+    
+    // Get poet names from selected poet IDs
+    const selectedPoetNames = searchStore.selectedPoets.map(poetId => {
+      const poet = searchStore.availablePoets.find(p => p.id === poetId)
+      return poet ? poet.name : null
+    }).filter(name => name !== null)
+    
+    // Fetch all results for frontend pagination
+    const response = await ApiService.searchPoems(localQuery.value, selectedPoetNames)
+    console.log('SearchBar received response:', response)
+    console.log('SearchBar response.results:', response.results)
+    console.log('SearchBar response.totalResults:', response.totalResults)
+    searchStore.setSearchResults(response.results)
+    searchStore.setTotalResults(response.totalResults)
+    console.log('SearchBar set results:', response.results?.length, 'total:', response.totalResults)
+    
+  } catch (err) {
+    console.error('SearchBar error:', err)
+    console.error('Error message:', err.message)
+    searchStore.setError(err.message)
+  } finally {
+    searchStore.setLoading(false)
+  }
+}
+</script>
+
+<style scoped>
+.search-bar {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.search-container {
+  display: flex;
+  background: transparent;
+  border: 1px solid #CDC7C6;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.3s ease;
+  width: 100%;
+  min-height: 50px;
+}
+
+.search-container:focus-within {
+  border-color: #702632;
+}
+
+.search-container.error {
+  border-color: #ff6b6b;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.search-input {
+  flex: 1;
+  padding: 15px 20px;
+  background: transparent;
+  border: none;
+  color: #CDC7C6;
+  font-size: 1rem;
+  direction: rtl;
+  text-align: right;
+  outline: none;
+  font-family: 'Vazirmatn', sans-serif;
+}
+
+.search-input::placeholder {
+  color: #888;
+}
+
+.search-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.search-button {
+  width: 50px;
+  background: #CDC7C6 !important;
+  color: #702632;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+  align-self: stretch;
+}
+
+.search-button:hover:not(:disabled) {
+  background: #B8B0AF;
+}
+
+.search-button:disabled {
+  background: #555;
+  cursor: not-allowed;
+}
+
+.search-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.error-message {
+  color: #ff6b6b;
+  text-align: center;
+  margin-top: 15px;
+  padding: 10px;
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .search-container {
+    flex-direction: column;
+  }
+  
+  .search-button {
+    width: 100%;
+    height: 45px;
+  }
+}
+</style>

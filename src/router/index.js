@@ -1,0 +1,24 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import HomePage from '../views/HomePage.vue'
+import PoetDetailPage from '../views/PoetDetailPage.vue'
+
+const routes = [
+  {
+    path: '/',
+    name: 'Home',
+    component: HomePage
+  },
+  {
+    path: '/poet/:id',
+    name: 'PoetDetail',
+    component: PoetDetailPage,
+    props: true
+  }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+export default router
