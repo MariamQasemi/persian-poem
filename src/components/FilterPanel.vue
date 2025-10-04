@@ -1,6 +1,6 @@
 <template>
   <div class="filter-panel">
-    <div class="poet-dropdown-container">
+    <div ref="dropdownContainer" class="poet-dropdown-container">
       <div 
         @click="toggleDropdown"
         class="poet-dropdown-trigger"
@@ -56,7 +56,6 @@
               />
               <span class="poet-name">{{ poet.name }}</span>
             </div>
-            <span class="poem-count">{{ poet.poemCount }} شعر</span>
           </div>
         </div>
       </div>
@@ -73,7 +72,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useSearchStore } from '../stores/search'
 import { ApiService } from '../services/api.js'
 
@@ -81,6 +80,7 @@ const searchStore = useSearchStore()
 const availablePoets = ref([])
 const showDropdown = ref(false)
 const poetSearchQuery = ref('')
+const dropdownContainer = ref(null)
 
 const selectedPoets = computed({
   get: () => searchStore.selectedPoets,
@@ -107,6 +107,13 @@ const filteredPoets = computed(() => {
 
 const toggleDropdown = () => {
   showDropdown.value = !showDropdown.value
+}
+
+// Click outside handler
+const handleClickOutside = (event) => {
+  if (dropdownContainer.value && !dropdownContainer.value.contains(event.target)) {
+    showDropdown.value = false
+  }
 }
 
 const selectPoet = (poet) => {
@@ -194,6 +201,14 @@ onMounted(async () => {
     availablePoets.value = []
     searchStore.setAvailablePoets([])
   }
+  
+  // Add click outside listener
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  // Remove click outside listener
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -321,7 +336,6 @@ onMounted(async () => {
 .poet-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 12px 15px;
   margin-bottom: 8px;
   border: 1px solid #702632 !important;
@@ -386,13 +400,6 @@ onMounted(async () => {
   font-family: 'Vazirmatn', sans-serif;
   font-size: 16px;
   padding-right: 16px;
-}
-
-.poet-item .poem-count {
-  color: #666;
-  font-size: 12px;
-  font-family: 'Vazirmatn', sans-serif;
-  padding-left: 8px;
 }
 
 /* Search Button */

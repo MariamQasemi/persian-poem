@@ -180,12 +180,23 @@ const performSearch = async () => {
 
 @media (max-width: 768px) {
   .search-container {
-    flex-direction: column;
+    flex-direction: row;
+    min-height: 50px;
+    align-items: stretch;
   }
   
   .search-button {
-    width: 100%;
-    height: 45px;
+    width: 50px;
+    height: auto;
+    flex-shrink: 0;
+    align-self: stretch;
+    min-height: 50px;
+  }
+  
+  .search-input {
+    padding: 15px 15px;
+    font-size: 0.9rem;
+    flex: 1;
   }
 }
 </style>

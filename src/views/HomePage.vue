@@ -49,6 +49,8 @@ import ResultList from '../components/ResultList.vue'
 }
 
 .main-title {
+  padding-top: 100px;
+  margin-top: 50px;
   font-size: 2.2rem;
   font-weight: 400;
   color: #CDC7C6;

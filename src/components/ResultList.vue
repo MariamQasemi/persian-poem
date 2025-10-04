@@ -33,12 +33,6 @@
       <div class="poetry-results">
         <!-- Poet Header with Action Buttons -->
         <div class="poet-header">
-          <button @click="prevPoem" :disabled="searchStore.currentPage === 1" class="nav-arrow nav-prev">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          
           <div class="poet-info">
             <h3 class="poet-name">{{ currentPoem?.poetName || 'نامشخص' }}</h3>
             <div class="poet-details">
@@ -58,12 +52,6 @@
               </svg>
             </button>
           </div>
-          
-          <button @click="nextPoem" :disabled="searchStore.currentPage === searchStore.totalPages" class="nav-arrow nav-next">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
         </div>
         
         <!-- Separator Line -->
@@ -95,9 +83,37 @@
           </div>
         </div>
         
+        <!-- Navigation Arrows -->
+        <div class="navigation-controls" v-if="searchStore.totalPages > 1">
+          <button @click="prevPoem" :disabled="searchStore.currentPage === 1" class="nav-arrow nav-prev">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          
+          <button @click="nextPoem" :disabled="searchStore.currentPage === searchStore.totalPages" class="nav-arrow nav-next">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        
         <!-- Page Indicator -->
         <div class="page-indicator" v-if="searchStore.totalPages > 1">
-          {{ searchStore.currentPage }} از {{ searchStore.totalPages }}
+          <div class="page-controls">
+            <span class="page-label">صفحه:</span>
+            <input 
+              v-model.number="pageInput"
+              @keyup.enter="goToPage"
+              @blur="goToPage"
+              type="number"
+              :min="1"
+              :max="searchStore.totalPages"
+              class="page-input"
+              :placeholder="searchStore.currentPage"
+            />
+            <span class="page-total">از {{ searchStore.totalPages }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -105,11 +121,12 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useSearchStore } from '../stores/search'
 import { ApiService } from '../services/api.js'
 
 const searchStore = useSearchStore()
+const pageInput = ref(searchStore.currentPage)
 
 // Access store values directly to maintain reactivity
 // Don't destructure reactive values as it breaks reactivity
@@ -147,6 +164,22 @@ const prevPoem = () => {
     searchStore.prevPage()
   }
 }
+
+// Go to specific page
+const goToPage = () => {
+  const page = parseInt(pageInput.value)
+  if (page >= 1 && page <= searchStore.totalPages) {
+    searchStore.setCurrentPage(page)
+  } else {
+    // Reset to current page if invalid input
+    pageInput.value = searchStore.currentPage
+  }
+}
+
+// Watch for changes in current page to update input
+watch(() => searchStore.currentPage, (newPage) => {
+  pageInput.value = newPage
+})
 
 // Function to highlight search query in poetry text
 const highlightSearchQuery = (text) => {
@@ -233,12 +266,14 @@ const sharePoetry = async (result) => {
 <style scoped>
 .result-list {
   min-height: 400px;
+  padding-bottom: 80px;
 }
 
 .loading-state,
 .error-state,
 .no-results,
 .welcome-state {
+  
   text-align: center;
   padding: 60px 20px;
   color: #CDC7C6;
@@ -300,6 +335,7 @@ const sharePoetry = async (result) => {
 
 .poetry-results {
   padding: 40px 20px;
+  margin-bottom: 40px;
 }
 
 
@@ -322,7 +358,7 @@ const sharePoetry = async (result) => {
 .poet-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   margin: 20px 0;
   padding: 0 20px;
   gap: 20px;
@@ -360,6 +396,47 @@ const sharePoetry = async (result) => {
   margin-top: 20px;
   padding: 10px;
   font-family: 'Vazirmatn', sans-serif;
+}
+
+.page-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.page-label {
+  color: #CDC7C6;
+  font-size: 0.9rem;
+}
+
+.page-input {
+  width: 60px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid #CDC7C6;
+  border-radius: 6px;
+  color: #CDC7C6;
+  font-size: 0.9rem;
+  text-align: center;
+  font-family: 'Vazirmatn', sans-serif;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.page-input:focus {
+  border-color: #702632;
+  background: rgba(112, 38, 50, 0.1);
+}
+
+.page-input::placeholder {
+  color: #888;
+}
+
+.page-total {
+  color: #888;
+  font-size: 0.9rem;
 }
 
 .action-buttons {
@@ -488,6 +565,23 @@ const sharePoetry = async (result) => {
   height: 20px;
 }
 
+.navigation-controls {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+  z-index: 1000;
+  background: rgba(21, 21, 21, 0.9);
+  padding: 15px 25px;
+  border-radius: 50px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(205, 199, 198, 0.2);
+}
+
 @media (min-width: 1920px) {
   .poetry-content {
     max-width: 98vw;
@@ -565,6 +659,13 @@ const sharePoetry = async (result) => {
     height: 18px;
   }
   
+  .navigation-controls {
+    bottom: 20px;
+    gap: 20px;
+    padding: 12px 20px;
+    border-radius: 40px;
+  }
+  
   .row-details {
     flex-direction: column;
     gap: 10px;
@@ -598,6 +699,21 @@ const sharePoetry = async (result) => {
   }
   
   .page-indicator {
+    font-size: 0.8rem;
+  }
+  
+  .page-controls {
+    gap: 8px;
+  }
+  
+  .page-input {
+    width: 50px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+  }
+  
+  .page-label,
+  .page-total {
     font-size: 0.8rem;
   }
 }
