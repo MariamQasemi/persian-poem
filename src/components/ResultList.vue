@@ -33,6 +33,7 @@
       <div class="poetry-results">
         <!-- Poet Header with Action Buttons -->
         <div class="poet-header">
+
           <div class="poet-info">
             <h3 class="poet-name">{{ currentPoem?.poetName || 'نامشخص' }}</h3>
             <div class="poet-details">
