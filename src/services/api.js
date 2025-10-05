@@ -1,9 +1,11 @@
 // API service for backend communication
-const API_BASE_URL = 'http://165.227.205.3' // Your actual API URL
+const API_BASE_URL = '/api' // Using Vite proxy to avoid CORS issues
 
 export class ApiService {
   static async searchPoems(query, poetFilters = []) {
     try {
+      console.log('Searching for:', query, 'with poets:', poetFilters)
+      
       // Build URL manually to ensure proper encoding
       let url = `${API_BASE_URL}/search?`
       
@@ -97,51 +99,6 @@ export class ApiService {
     }
   }
 
-  static getTestData() {
-    // Return test data for debugging
-    return [
-      {
-        id: 1,
-        poetId: 1,
-        poetName: 'حافظ',
-        poemTitle: 'غزل شماره ۱',
-        verses: [
-          'ساقیا برخیز و درده جام را',
-          'ساغرِ مِی بر گفَم نه تا ز بر',
-          'گرچه بدنامی ست نزد عاقلان',
-          'باده درده چند از این باد غرور',
-          'دود آه سینه نالان من',
-          'محرم راز دل شیدای خود',
-          'با دلارامی مرا خاطر خوش است',
-          'ننگرد دیگر به سرو اندر چمن',
-          'صبر کن حافظ به سختی روز و شب'
-        ],
-        matchedVerse: 'ساقیا برخیز و درده جام را',
-        url: '#',
-        category: 'غزل'
-      },
-      {
-        id: 2,
-        poetId: 2,
-        poetName: 'فردوسی',
-        poemTitle: 'شاهنامه',
-        verses: [
-          'خاک بر سر کن غم ایام را',
-          'برکشم این دلق ازرق فام را',
-          'ما نمی خواهیم ننگ و نام را',
-          'خاک بر سر، نفس نافرجام را',
-          'سوخت این افسردگان خام را',
-          'کس نمیبینم از خاص و عام را',
-          'کز دلم یک باره برد آرام را',
-          'هر که دید آن سرو سیم اندام را',
-          'عاقبت روزی بیابی کام را'
-        ],
-        matchedVerse: 'خاک بر سر کن غم ایام را',
-        url: '#',
-        category: 'حماسی'
-      }
-    ]
-  }
 
   static async getPoets() {
     try {

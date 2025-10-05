@@ -34,7 +34,8 @@
         <!-- Poet Header with Action Buttons -->
         <div class="poet-header">
 
-          <div class="poet-info">
+
+cd          <div class="poet-info">
             <h3 class="poet-name">{{ currentPoem?.poetName || 'نامشخص' }}</h3>
             <div class="poet-details">
               <span class="category">{{ currentPoem?.category || 'عمومی' }}</span>
@@ -138,19 +139,19 @@ const currentPoem = computed(() => {
   return searchStore.filteredResults[searchStore.currentPage - 1]
 })
 
-// Split verses into two columns
-const leftColumnVerses = computed(() => {
-  if (!currentPoem.value || !currentPoem.value.verses) return []
-  const verses = currentPoem.value.verses
-  const half = Math.ceil(verses.length / 2)
-  return verses.slice(0, half)
-})
-
+// Split verses into two columns with zigzag pattern
+// Right column: verses 2, 4, 6, 8... (even positions)
+// Left column: verses 1, 3, 5, 7... (odd positions)
 const rightColumnVerses = computed(() => {
   if (!currentPoem.value || !currentPoem.value.verses) return []
   const verses = currentPoem.value.verses
-  const half = Math.ceil(verses.length / 2)
-  return verses.slice(half)
+  return verses.filter((_, index) => index % 2 === 1) // 1, 3, 5, 7... (even positions: 2nd, 4th, 6th...)
+})
+
+const leftColumnVerses = computed(() => {
+  if (!currentPoem.value || !currentPoem.value.verses) return []
+  const verses = currentPoem.value.verses
+  return verses.filter((_, index) => index % 2 === 0) // 0, 2, 4, 6... (odd positions: 1st, 3rd, 5th...)
 })
 
 // Navigation methods for single poem display
