@@ -47,11 +47,10 @@
           >
             <div class="poet-info">
               <input 
-                type="radio" 
+                type="checkbox" 
                 :id="`poet-${poet.id}`"
-                :name="`poet-selection`"
                 :checked="selectedPoets.includes(poet.id)"
-                class="poet-radio"
+                class="poet-checkbox"
                 @click.stop="selectPoet(poet)"
               />
               <span class="poet-name">{{ poet.name }}</span>
@@ -121,8 +120,7 @@ const selectPoet = (poet) => {
     // Remove poet if already selected
     searchStore.removePoetFilter(poet.id)
   } else {
-    // Clear all previous selections and add only this poet
-    searchStore.clearFilters()
+    // Add poet to selection (allow multiple selections)
     searchStore.addPoetFilter(poet.id)
   }
   
@@ -352,7 +350,7 @@ onUnmounted(() => {
   background: #B8B0AF;
 }
 
-.poet-radio {
+.poet-checkbox {
   width: 16px !important;
   height: 16px !important;
   min-width: 16px !important;
@@ -362,7 +360,7 @@ onUnmounted(() => {
   margin-right: 16px;
   background: transparent !important;
   border: 2px solid #702632 !important;
-  border-radius: 50%;
+  border-radius: 4px;
   padding: 0 !important;
   appearance: none !important;
   -webkit-appearance: none !important;
@@ -372,20 +370,20 @@ onUnmounted(() => {
   box-sizing: border-box !important;
 }
 
-.poet-radio:checked {
+.poet-checkbox:checked {
   background: #702632 !important;
 }
 
-.poet-radio:checked::after {
-  content: '';
+.poet-checkbox:checked::after {
+  content: '✓';
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 6px;
-  height: 6px;
-  background: white;
-  border-radius: 50%;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1;
 }
 
 .poet-info {

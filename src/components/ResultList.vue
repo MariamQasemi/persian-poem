@@ -61,7 +61,8 @@ cd          <div class="poet-info">
         
         <!-- Poetry Content in Two Columns -->
         <div class="poetry-content" v-if="currentPoem">
-          <div class="poetry-columns">
+          <!-- Desktop/Tablet: Two Column Layout -->
+          <div class="poetry-columns desktop-layout">
             <div class="poetry-column">
               <div 
                 v-for="(verse, index) in leftColumnVerses" 
@@ -76,6 +77,20 @@ cd          <div class="poet-info">
               <div 
                 v-for="(verse, index) in rightColumnVerses" 
                 :key="`right-${index}`"
+                class="poetry-line"
+                :class="{ highlighted: verse.includes(searchStore.searchQuery) }"
+                v-html="highlightSearchQuery(verse)"
+              >
+              </div>
+            </div>
+          </div>
+          
+          <!-- Mobile: Single Column Layout with Sequential Order -->
+          <div class="poetry-columns mobile-layout">
+            <div class="poetry-column">
+              <div 
+                v-for="(verse, index) in currentPoem.verses" 
+                :key="`mobile-${index}`"
                 class="poetry-line"
                 :class="{ highlighted: verse.includes(searchStore.searchQuery) }"
                 v-html="highlightSearchQuery(verse)"
@@ -487,6 +502,17 @@ const sharePoetry = async (result) => {
   width: 100%;
 }
 
+/* Desktop/Tablet Layout */
+.desktop-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 100px;
+}
+
+.mobile-layout {
+  display: none;
+}
+
 .poetry-column {
   text-align: right;
   min-width: 0;
@@ -684,6 +710,17 @@ const sharePoetry = async (result) => {
   .poetry-content {
     max-width: 100%;
     padding: 0 20px;
+  }
+  
+  /* Show mobile layout, hide desktop layout */
+  .desktop-layout {
+    display: none;
+  }
+  
+  .mobile-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 40px;
   }
   
   .poetry-columns {
