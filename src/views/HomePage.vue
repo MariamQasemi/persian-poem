@@ -5,6 +5,8 @@
     
     <!-- Main Content -->
     <div class="main-content">
+      <!-- Mobile: Filter Toggle Button will be here from FilterPanel -->
+      
       <!-- Main Title Section -->
       <div class="title-section">
         <h1 class="main-title font-lalezar">کافیه کلمه رو سرچ کنی</h1>
@@ -93,14 +95,21 @@ import ResultList from '../components/ResultList.vue'
 
 /* Mobile Styles */
 @media (max-width: 768px) {
+  .app {
+    flex-direction: column;
+  }
+  
   .main-content {
     margin-right: 0;
     padding: 15px;
+    width: 100%;
+    padding-top: 80px; /* Space for toggle button */
   }
   
   .main-title {
     font-size: 1.8rem;
-    padding-top: 60px;
+    padding-top: 20px;
+    margin-top: 0;
   }
   
   .subtitle {
