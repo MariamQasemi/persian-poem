@@ -1,5 +1,5 @@
 // API service for backend communication
-const API_BASE_URL = '/api' // Using Vite proxy to avoid CORS issues
+const API_BASE_URL = '/poems/api' // Using Vite proxy to avoid CORS issues
 
 export class ApiService {
   static async searchPoems(query, poetFilters = []) {
