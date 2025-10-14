@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomePage from '../views/HomePage.vue'
 import PoetDetailPage from '../views/PoetDetailPage.vue'
+import PoemDetailPage from '../views/PoemDetailPage.vue'
 
 const routes = [
   {
@@ -12,6 +13,12 @@ const routes = [
     path: '/poet/:id',
     name: 'PoetDetail',
     component: PoetDetailPage,
+    props: true
+  },
+  {
+    path: '/poem/:id',
+    name: 'PoemDetail',
+    component: PoemDetailPage,
     props: true
   }
 ]

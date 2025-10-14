@@ -33,9 +33,7 @@
       <div class="poetry-results">
         <!-- Poet Header with Action Buttons -->
         <div class="poet-header">
-
-
-cd          <div class="poet-info">
+          <div class="poet-info">
             <h3 class="poet-name">{{ currentPoem?.poetName || 'نامشخص' }}</h3>
             <div class="poet-details">
               <span class="category">{{ currentPoem?.category || 'عمومی' }}</span>
@@ -61,75 +59,93 @@ cd          <div class="poet-info">
         
         <!-- Poetry Content in Two Columns -->
         <div class="poetry-content" v-if="currentPoem">
-          <!-- Desktop/Tablet: Two Column Layout -->
-          <div class="poetry-columns desktop-layout">
-            <div class="poetry-column">
-              <div 
-                v-for="(verse, index) in leftColumnVerses" 
-                :key="`left-${index}`"
-                class="poetry-line"
-                :class="{ highlighted: verse.includes(searchStore.searchQuery) }"
-                v-html="highlightSearchQuery(verse)"
-              >
-              </div>
-            </div>
-            <div class="poetry-column">
-              <div 
-                v-for="(verse, index) in rightColumnVerses" 
-                :key="`right-${index}`"
-                class="poetry-line"
-                :class="{ highlighted: verse.includes(searchStore.searchQuery) }"
-                v-html="highlightSearchQuery(verse)"
-              >
+          <!-- Desktop/Tablet: Two Column Layout with Couplets -->
+          <div class="desktop-layout">
+            <div 
+              v-for="(couplet, cIndex) in coupletsPreview" 
+              :key="`couplet-${cIndex}`"
+              class="couplet-row"
+            >
+              <div class="poetry-columns">
+                <div class="poetry-column">
+                  <div 
+                    class="poetry-line"
+                    :class="{ highlighted: couplet[0] && couplet[0].includes(searchStore.searchQuery) }"
+                    v-html="highlightSearchQuery(couplet[0] || '')"
+                  ></div>
+                </div>
+                <div class="poetry-column">
+                  <div 
+                    class="poetry-line"
+                    :class="{ highlighted: couplet[1] && couplet[1].includes(searchStore.searchQuery) }"
+                    v-html="highlightSearchQuery(couplet[1] || '')"
+                  ></div>
+                </div>
               </div>
             </div>
           </div>
           
           <!-- Mobile: Single Column Layout with Sequential Order -->
-          <div class="poetry-columns mobile-layout">
-            <div class="poetry-column">
-              <div 
-                v-for="(verse, index) in currentPoem.verses" 
-                :key="`mobile-${index}`"
-                class="poetry-line"
-                :class="{ highlighted: verse.includes(searchStore.searchQuery) }"
-                v-html="highlightSearchQuery(verse)"
-              >
+          <div class="mobile-layout">
+            <div 
+              v-for="(couplet, cIndex) in coupletsPreview" 
+              :key="`mobile-couplet-${cIndex}`"
+              class="couplet-row"
+            >
+              <div class="poetry-column">
+                <div 
+                  class="poetry-line"
+                  :class="{ highlighted: couplet[0] && couplet[0].includes(searchStore.searchQuery) }"
+                  v-html="highlightSearchQuery(couplet[0] || '')"
+                ></div>
+                <div 
+                  class="poetry-line"
+                  :class="{ highlighted: couplet[1] && couplet[1].includes(searchStore.searchQuery) }"
+                  v-html="highlightSearchQuery(couplet[1] || '')"
+                ></div>
               </div>
             </div>
           </div>
-        </div>
-        
-        <!-- Navigation Arrows -->
-        <div class="navigation-controls" v-if="searchStore.totalPages > 1">
-          <button @click="prevPoem" :disabled="searchStore.currentPage === 1" class="nav-arrow nav-prev">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
           
-          <button @click="nextPoem" :disabled="searchStore.currentPage === searchStore.totalPages" class="nav-arrow nav-next">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
+          <!-- View Full Poem Button -->
+          <div class="view-full-btn-container">
+            <button @click="viewFullPoem" class="view-full-btn">
+              مشاهده شعر کامل
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 5V19M12 19L5 12M12 19L19 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
         
-        <!-- Page Indicator -->
-        <div class="page-indicator" v-if="searchStore.totalPages > 1">
-          <div class="page-controls">
-            <span class="page-label">صفحه:</span>
-            <input 
-              v-model.number="pageInput"
-              @keyup.enter="goToPage"
-              @blur="goToPage"
-              type="number"
-              :min="1"
-              :max="searchStore.totalPages"
-              class="page-input"
-              :placeholder="searchStore.currentPage"
-            />
-            <span class="page-total">از {{ searchStore.totalPages }}</span>
+        <!-- Pagination Controls - Always visible when there are results -->
+        <div class="pagination-section" v-if="searchStore.hasResults">
+          <div class="pagination-controls">
+            <button @click="prevPoem" :disabled="searchStore.currentPage === 1" class="nav-arrow nav-prev">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            
+            <div class="page-controls">
+              <span class="page-label">صفحه</span>
+              <input 
+                v-model.number="pageInput"
+                @keyup.enter="goToPage"
+                @blur="goToPage"
+                type="number"
+                :min="1"
+                :max="searchStore.totalPages"
+                class="page-input"
+              />
+              <span class="page-label">از {{ searchStore.totalPages }}</span>
+            </div>
+            
+            <button @click="nextPoem" :disabled="searchStore.currentPage === searchStore.totalPages" class="nav-arrow nav-next">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -139,9 +155,11 @@ cd          <div class="poet-info">
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useSearchStore } from '../stores/search'
 import { ApiService } from '../services/api.js'
 
+const router = useRouter()
 const searchStore = useSearchStore()
 const pageInput = ref(searchStore.currentPage)
 
@@ -150,23 +168,26 @@ const pageInput = ref(searchStore.currentPage)
 
 // Current poem for single display
 const currentPoem = computed(() => {
-  if (!searchStore.filteredResults.length) return null
-  return searchStore.filteredResults[searchStore.currentPage - 1]
+  console.log('ResultList - filteredResults:', searchStore.filteredResults)
+  console.log('ResultList - current page:', searchStore.currentPage)
+  if (!searchStore.filteredResults.length) {
+    console.log('ResultList - No filtered results')
+    return null
+  }
+  const poem = searchStore.filteredResults[searchStore.currentPage - 1]
+  console.log('ResultList - currentPoem:', poem)
+  return poem
 })
 
-// Split verses into two columns with zigzag pattern
-// Right column: verses 2, 4, 6, 8... (even positions)
-// Left column: verses 1, 3, 5, 7... (odd positions)
-const rightColumnVerses = computed(() => {
-  if (!currentPoem.value || !currentPoem.value.verses) return []
-  const verses = currentPoem.value.verses
-  return verses.filter((_, index) => index % 2 === 1) // 1, 3, 5, 7... (even positions: 2nd, 4th, 6th...)
+// Get all couplets for the current poem
+const allCouplets = computed(() => {
+  if (!currentPoem.value || !currentPoem.value.couplets) return []
+  return currentPoem.value.couplets
 })
 
-const leftColumnVerses = computed(() => {
-  if (!currentPoem.value || !currentPoem.value.verses) return []
-  const verses = currentPoem.value.verses
-  return verses.filter((_, index) => index % 2 === 0) // 0, 2, 4, 6... (odd positions: 1st, 3rd, 5th...)
+// Preview versions (only first 3 couplets)
+const coupletsPreview = computed(() => {
+  return allCouplets.value.slice(0, 3)
 })
 
 // Navigation methods for single poem display
@@ -240,7 +261,10 @@ const retrySearch = async () => {
 }
 
 const copyPoetry = async (result) => {
-  const poetryText = result.verses.join('\n')
+  // Convert couplets to text: join each couplet's hemistichs with spaces, then join couplets with newlines
+  const poetryText = result.couplets
+    .map(couplet => `${couplet[0]}    ${couplet[1]}`)
+    .join('\n')
   const fullText = `${result.poetName}\n\n${poetryText}`
   
   try {
@@ -260,7 +284,10 @@ const copyPoetry = async (result) => {
 }
 
 const sharePoetry = async (result) => {
-  const poetryText = result.verses.join('\n')
+  // Convert couplets to text: join each couplet's hemistichs with spaces, then join couplets with newlines
+  const poetryText = result.couplets
+    .map(couplet => `${couplet[0]}    ${couplet[1]}`)
+    .join('\n')
   const shareText = `${result.poetName}\n\n${poetryText}`
   
   if (navigator.share) {
@@ -277,6 +304,20 @@ const sharePoetry = async (result) => {
     // Fallback: copy to clipboard
     copyPoetry(result)
   }
+}
+
+// Navigate to full poem page
+const viewFullPoem = () => {
+  if (!currentPoem.value || !currentPoem.value.id) {
+    console.error('No current poem to display')
+    return
+  }
+  
+  console.log('Navigating to poem:', currentPoem.value.id)
+  router.push({
+    name: 'PoemDetail',
+    params: { id: currentPoem.value.id }
+  })
 }
 </script>
 
@@ -406,54 +447,59 @@ const sharePoetry = async (result) => {
   font-family: 'Vazirmatn', sans-serif;
 }
 
-.page-indicator {
-  text-align: center;
-  color: #888;
-  font-size: 0.9rem;
-  margin-top: 20px;
-  padding: 10px;
-  font-family: 'Vazirmatn', sans-serif;
-}
-
 .page-controls {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .page-label {
   color: #CDC7C6;
-  font-size: 0.9rem;
+  font-size: 1rem;
+  font-family: 'Vazirmatn', sans-serif;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .page-input {
-  width: 60px;
-  padding: 8px 12px;
-  background: transparent;
-  border: 1px solid #CDC7C6;
-  border-radius: 6px;
+  width: 70px;
+  padding: 10px 14px;
+  background: #2a2a2a;
+  border: 2px solid #702632;
+  border-radius: 8px;
   color: #CDC7C6;
-  font-size: 0.9rem;
+  font-size: 1rem;
   text-align: center;
   font-family: 'Vazirmatn', sans-serif;
   outline: none;
-  transition: border-color 0.3s ease;
+  transition: all 0.3s ease;
+  font-weight: 600;
 }
 
 .page-input:focus {
-  border-color: #702632;
-  background: rgba(112, 38, 50, 0.1);
+  border-color: #8b3a42;
+  background: #353535;
+  box-shadow: 0 0 0 3px rgba(112, 38, 50, 0.2);
 }
 
-.page-input::placeholder {
-  color: #888;
+.page-input:hover {
+  border-color: #8b3a42;
+  background: #353535;
 }
 
-.page-total {
-  color: #888;
-  font-size: 0.9rem;
+/* Remove number input spinners */
+.page-input::-webkit-outer-spin-button,
+.page-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+.page-input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .action-buttons {
@@ -494,6 +540,18 @@ const sharePoetry = async (result) => {
   padding: 0 20px;
 }
 
+.couplet-row {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(205, 199, 198, 0.15);
+}
+
+.couplet-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
 .poetry-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -504,9 +562,7 @@ const sharePoetry = async (result) => {
 
 /* Desktop/Tablet Layout */
 .desktop-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 100px;
+  display: block;
 }
 
 .mobile-layout {
@@ -521,15 +577,14 @@ const sharePoetry = async (result) => {
 }
 
 .poetry-line {
-  margin: 20px 0;
-  padding: 15px 0;
-  line-height: 2.8;
+  margin: 10px 0;
+  padding: 15px;
+  line-height: 2.2;
   color: #CDC7C6;
   font-size: 1.1rem;
   font-weight: 400;
-  border-bottom: 1px solid #CDC7C6;
   transition: all 0.3s ease;
-  white-space: nowrap;
+  white-space: normal;
   overflow: visible;
   text-overflow: unset;
   min-height: 50px;
@@ -537,6 +592,7 @@ const sharePoetry = async (result) => {
   align-items: center;
   width: 100%;
   max-width: none;
+  border-bottom: none;
 }
 
 .poetry-line:hover {
@@ -593,7 +649,13 @@ const sharePoetry = async (result) => {
   height: 20px;
 }
 
-.navigation-controls {
+.pagination-section {
+  margin-top: 40px;
+  padding: 20px 0;
+  border-top: 1px solid rgba(205, 199, 198, 0.2);
+}
+
+.pagination-controls {
   position: fixed;
   bottom: 30px;
   left: 50%;
@@ -601,13 +663,14 @@ const sharePoetry = async (result) => {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 30px;
+  gap: 20px;
   z-index: 1000;
-  background: rgba(21, 21, 21, 0.9);
-  padding: 15px 25px;
+  background: rgba(21, 21, 21, 0.95);
+  padding: 15px 30px;
   border-radius: 50px;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(205, 199, 198, 0.2);
+  border: 1px solid #702632;
+  box-shadow: 0 4px 20px rgba(112, 38, 50, 0.3);
 }
 
 @media (min-width: 1920px) {
@@ -718,9 +781,12 @@ const sharePoetry = async (result) => {
   }
   
   .mobile-layout {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 40px;
+    display: block;
+  }
+  
+  .couplet-row {
+    margin-bottom: 25px;
+    padding-bottom: 15px;
   }
   
   .poetry-columns {
@@ -754,6 +820,291 @@ const sharePoetry = async (result) => {
   .page-label,
   .page-total {
     font-size: 0.8rem;
+  }
+}
+
+/* View Full Poem Button */
+.view-full-btn-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+  padding: 20px 0;
+}
+
+.view-full-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #702632;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 14px 28px;
+  font-size: 1rem;
+  font-family: 'Vazirmatn', sans-serif;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(112, 38, 50, 0.3);
+}
+
+.view-full-btn:hover {
+  background: #8b3a42;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(112, 38, 50, 0.4);
+}
+
+.view-full-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: #151515;
+  border: 1px solid #CDC7C6;
+  border-radius: 16px;
+  max-width: 1200px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 25px 30px;
+  border-bottom: 1px solid rgba(205, 199, 198, 0.2);
+}
+
+.modal-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.modal-poet-name {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #CDC7C6;
+  margin: 0;
+  font-family: 'Vazirmatn', sans-serif;
+}
+
+.modal-poem-title {
+  font-size: 1.1rem;
+  color: #CDC7C6;
+  margin: 5px 0;
+  font-family: 'Vazirmatn', sans-serif;
+  opacity: 0.8;
+}
+
+.modal-category {
+  color: #888;
+  font-size: 1rem;
+  font-family: 'Vazirmatn', sans-serif;
+}
+
+.modal-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: #CDC7C6;
+  font-size: 1.1rem;
+  font-family: 'Vazirmatn', sans-serif;
+}
+
+.modal-close-btn {
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: 1px solid #CDC7C6;
+  border-radius: 50%;
+  color: #CDC7C6;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.modal-close-btn:hover {
+  background: #702632;
+  border-color: #702632;
+  transform: scale(1.1);
+}
+
+.modal-close-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 30px;
+}
+
+.modal-body .poetry-columns {
+  gap: 100px;
+}
+
+.modal-body .poetry-line {
+  margin: 18px 0;
+  padding: 15px 0;
+}
+
+/* Custom scrollbar for modal */
+.modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: #2a2a2a;
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: #702632;
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: #8b3a42;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  padding: 20px 30px;
+  border-top: 1px solid rgba(205, 199, 198, 0.2);
+}
+
+.modal-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: #CDC7C6;
+  border: 1px solid #CDC7C6;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 0.95rem;
+  font-family: 'Vazirmatn', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.modal-action-btn:hover {
+  background: #702632;
+  border-color: #702632;
+  color: white;
+}
+
+.modal-action-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Modal Mobile Styles */
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 0;
+  }
+  
+  .modal-content {
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+  }
+  
+  .modal-header {
+    padding: 20px;
+  }
+  
+  .modal-poet-name {
+    font-size: 1.4rem;
+  }
+  
+  .modal-category {
+    font-size: 0.9rem;
+  }
+  
+  .modal-close-btn {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .modal-body {
+    padding: 20px;
+  }
+  
+  .modal-body .poetry-columns {
+    gap: 40px;
+  }
+  
+  .modal-body .poetry-line {
+    white-space: normal;
+    font-size: 1rem;
+    margin: 15px 0;
+    padding: 12px 0;
+  }
+  
+  .modal-footer {
+    padding: 15px 20px;
+    gap: 10px;
+  }
+  
+  .modal-action-btn {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+  
+  .view-full-btn {
+    padding: 12px 24px;
+    font-size: 0.95rem;
   }
 }
 </style>

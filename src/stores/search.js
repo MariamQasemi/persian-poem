@@ -30,7 +30,10 @@ export const useSearchStore = defineStore('search', () => {
   })
   
   const totalPages = computed(() => {
-    return totalResults.value // 1 poem per page, so total pages = total results
+    // 1 poem per page, so total pages = number of filtered results
+    const pages = filteredResults.value.length
+    console.log('totalPages computed:', pages, 'filteredResults.length:', filteredResults.value.length)
+    return pages
   })
   
   const hasMorePages = computed(() => {

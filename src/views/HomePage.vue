@@ -1,20 +1,25 @@
 <template>
   <div class="app">
-    <!-- Main Title Section -->
-    <div class="title-section">
-      <h1 class="main-title font-lalezar">کافیه کلمه رو سرچ کنی</h1>
-      <p class="subtitle font-lalezar">شعر خودش تو را پیدا میکند...</p>
-    </div>
-
-    <!-- Search and Filter Section -->
-    <div class="search-filter-section">
-      <SearchBar />
-      <FilterPanel />
-    </div>
+    <!-- Filter Sidebar -->
+    <FilterPanel />
     
-    <!-- Results Section -->
-    <div class="results-section">
-      <ResultList />
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Main Title Section -->
+      <div class="title-section">
+        <h1 class="main-title font-lalezar">کافیه کلمه رو سرچ کنی</h1>
+        <p class="subtitle font-lalezar">شعر خودش تو را پیدا میکند...</p>
+      </div>
+
+      <!-- Search Section -->
+      <div class="search-section">
+        <SearchBar />
+      </div>
+      
+      <!-- Results Section -->
+      <div class="results-section">
+        <ResultList />
+      </div>
     </div>
   </div>
 </template>
@@ -30,22 +35,27 @@ import ResultList from '../components/ResultList.vue'
   min-height: 100vh;
   background: #151515;
   direction: rtl;
-  text-align: center;
-  padding: 0 20px;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   width: 100%;
   margin: 0;
   box-sizing: border-box;
   position: relative;
-  left: 0;
-  right: 0;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  margin-right: 320px;
+  transition: margin-right 0.3s ease;
 }
 
 .title-section {
   margin-bottom: 60px;
+  text-align: center;
 }
 
 .main-title {
@@ -68,36 +78,36 @@ import ResultList from '../components/ResultList.vue'
   font-family: 'Lalezar', cursive;
 }
 
-.search-filter-section {
+.search-section {
   width: 100%;
-  max-width: 900px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  max-width: 800px;
   margin: 0 auto;
-  align-items: center;
-  justify-content: center;
+  text-align: center;
 }
 
 .results-section {
   width: 100%;
+  max-width: 1400px;
   margin: 40px auto 0;
 }
 
+/* Mobile Styles */
 @media (max-width: 768px) {
-  .app {
-    padding: 0 15px;
+  .main-content {
+    margin-right: 0;
+    padding: 15px;
   }
   
   .main-title {
     font-size: 1.8rem;
+    padding-top: 60px;
   }
   
   .subtitle {
     font-size: 1rem;
   }
   
-  .search-filter-section {
+  .search-section {
     max-width: 100%;
     width: 100%;
   }
@@ -110,6 +120,13 @@ import ResultList from '../components/ResultList.vue'
   
   .title-section {
     margin-bottom: 40px;
+  }
+}
+
+/* Large Desktop */
+@media (min-width: 1920px) {
+  .results-section {
+    max-width: 1800px;
   }
 }
 </style>
