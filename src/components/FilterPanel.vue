@@ -268,6 +268,9 @@ onMounted(async () => {
       }
     }
     
+    // Listen for sidebar toggle events from Navbar
+    window.addEventListener('toggleSidebar', toggleSidebar)
+    
   } catch (err) {
     console.error('FilterPanel: Error loading poets:', err)
     console.error('FilterPanel: Error details:', err.message, err.stack)
@@ -278,7 +281,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // Cleanup if needed
+  // Cleanup event listener
+  window.removeEventListener('toggleSidebar', toggleSidebar)
 })
 </script>
 
@@ -304,8 +308,7 @@ onUnmounted(() => {
   margin: 0 auto 20px;
   position: fixed;
   top: 15px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 15px;
   z-index: 900;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
@@ -635,7 +638,7 @@ onUnmounted(() => {
 /* Mobile Styles */
 @media (max-width: 768px) {
   .sidebar-toggle-btn {
-    display: flex;
+    display: none; /* Hidden because navbar has its own toggle button */
   }
 
   .sidebar-overlay {

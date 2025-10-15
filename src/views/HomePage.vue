@@ -1,5 +1,8 @@
 <template>
   <div class="app">
+    <!-- Navbar -->
+    <Navbar />
+    
     <!-- Filter Sidebar -->
     <FilterPanel />
     
@@ -10,7 +13,7 @@
       <!-- Main Title Section -->
       <div class="title-section">
         <h1 class="main-title font-lalezar">کافیه کلمه رو سرچ کنی</h1>
-        <p class="subtitle font-lalezar">شعر خودش تو را پیدا میکند...</p>
+        <p class="subtitle font-lalezar">شعر خودش تو رو پیدا میکنه...</p>
       </div>
 
       <!-- Search Section -->
@@ -30,6 +33,7 @@
 import SearchBar from '../components/SearchBar.vue'
 import FilterPanel from '../components/FilterPanel.vue'
 import ResultList from '../components/ResultList.vue'
+import Navbar from '../components/Navbar.vue'
 </script>
 
 <style scoped>
@@ -51,6 +55,7 @@ import ResultList from '../components/ResultList.vue'
   align-items: center;
   justify-content: center;
   padding: 20px;
+  padding-top: 105px; /* 85px navbar height + 20px padding */
   margin-right: 320px;
   transition: margin-right 0.3s ease;
 }
@@ -74,7 +79,7 @@ import ResultList from '../components/ResultList.vue'
 .subtitle {
   font-size: 1.1rem;
   color: #CDC7C6;
-  margin: 0;
+  margin: 0 0 20px 0;
   font-weight: 400;
   opacity: 0.8;
   font-family: 'Lalezar', cursive;
@@ -103,7 +108,7 @@ import ResultList from '../components/ResultList.vue'
     margin-right: 0;
     padding: 15px;
     width: 100%;
-    padding-top: 80px; /* Space for toggle button */
+    padding-top: 100px; /* 85px navbar height + 15px padding */
   }
   
   .main-title {
