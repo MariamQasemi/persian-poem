@@ -1,5 +1,5 @@
 // API service for backend communication
-const API_BASE_URL = '/poems/api' // Using Vite proxy to avoid CORS issues
+const API_BASE_URL = '/api' // Using Vite proxy to avoid CORS issues
 
 export class ApiService {
   static async searchPoems(query, poetFilters = []) {
@@ -189,6 +189,108 @@ export class ApiService {
       return poemData
     } catch (error) {
       console.error('Full poem API error:', error)
+      console.error('Error details:', error.message)
+      throw error
+    }
+  }
+
+  static async registerUser(userData) {
+    try {
+      console.log('API: Registering user with data:', userData)
+      console.log('API: Data being sent:', JSON.stringify(userData, null, 2))
+      
+      // Try different field name variations that backends commonly expect
+      const requestData = {
+        name: userData.name,
+        email: userData.email,
+        password: userData.password,
+        password_confirmation: userData.password_confirmation,
+        // Alternative field names that some backends expect
+        username: userData.name,
+        full_name: userData.name,
+        confirm_password: userData.password_confirmation
+      }
+      
+      console.log('API: Request data with alternatives:', JSON.stringify(requestData, null, 2))
+      
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+      })
+      
+      console.log('API: Register response status:', response.status)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('API: Registration error details:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData,
+          userData: userData
+        })
+        
+        // For 422 errors, show more detailed validation errors
+        if (response.status === 422) {
+          const validationErrors = errorData.errors || errorData.message || 'Validation failed'
+          throw new Error(`Validation Error: ${JSON.stringify(validationErrors)}`)
+        }
+        
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      console.log('API: Registration successful:', result)
+      return result
+    } catch (error) {
+      console.error('Registration API error:', error)
+      console.error('Error details:', error.message)
+      throw error
+    }
+  }
+
+  static async loginUser(credentials) {
+    try {
+      console.log('API: Logging in user with credentials:', credentials)
+      console.log('API: Login data being sent:', JSON.stringify(credentials, null, 2))
+      
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(credentials)
+      })
+      
+      console.log('API: Login response status:', response.status)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('API: Login error details:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData,
+          credentials: credentials
+        })
+        
+        // For 422 errors, show more detailed validation errors
+        if (response.status === 422) {
+          const validationErrors = errorData.errors || errorData.message || 'Validation failed'
+          throw new Error(`Validation Error: ${JSON.stringify(validationErrors)}`)
+        }
+        
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      console.log('API: Login successful:', result)
+      return result
+    } catch (error) {
+      console.error('Login API error:', error)
       console.error('Error details:', error.message)
       throw error
     }

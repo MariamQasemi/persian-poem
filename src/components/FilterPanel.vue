@@ -268,6 +268,9 @@ onMounted(async () => {
       }
     }
     
+    // Listen for sidebar toggle events from Navbar
+    window.addEventListener('toggleSidebar', toggleSidebar)
+    
   } catch (err) {
     console.error('FilterPanel: Error loading poets:', err)
     console.error('FilterPanel: Error details:', err.message, err.stack)
@@ -278,7 +281,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // Cleanup if needed
+  // Cleanup event listener
+  window.removeEventListener('toggleSidebar', toggleSidebar)
 })
 </script>
 
@@ -302,6 +306,11 @@ onUnmounted(() => {
   cursor: pointer;
   transition: background-color 0.3s ease;
   margin: 0 auto 20px;
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  z-index: 900;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar-toggle-btn svg {
@@ -325,8 +334,9 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   z-index: 999;
+  backdrop-filter: blur(4px);
 }
 
 /* Sidebar */
@@ -628,15 +638,18 @@ onUnmounted(() => {
 /* Mobile Styles */
 @media (max-width: 768px) {
   .sidebar-toggle-btn {
-    display: flex;
+    display: none; /* Hidden because navbar has its own toggle button */
   }
 
   .sidebar-overlay {
     display: block;
+    animation: fadeIn 0.3s ease;
   }
 
   .filter-sidebar {
     transform: translateX(100%);
+    width: 100%;
+    max-width: 100%;
   }
 
   .filter-sidebar.open {
@@ -653,6 +666,15 @@ onUnmounted(() => {
 
   .poet-list {
     max-height: calc(100vh - 300px);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
