@@ -71,8 +71,10 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ApiService } from '../services/api.js'
+import { useAuthStore } from '../stores/auth.js'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const isLoading = ref(false)
 const successMessage = ref('')
@@ -129,12 +131,9 @@ const handleSubmit = async () => {
     
     successMessage.value = 'ورود با موفقیت انجام شد!'
     
-    // Store user data in localStorage
-    if (result.user) {
-      localStorage.setItem('user', JSON.stringify(result.user))
-    }
-    if (result.token) {
-      localStorage.setItem('token', result.token)
+    // Update auth store
+    if (result.token && result.user) {
+      authStore.login(result.user, result.token)
     }
     
     // Redirect to profile page after successful login

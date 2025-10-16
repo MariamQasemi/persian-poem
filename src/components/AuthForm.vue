@@ -156,6 +156,8 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ApiService } from '../services/api.js'
+import { CookieManager } from '../utils/cookieManager.js'
+import { useAuthStore } from '../stores/auth.js'
 
 const props = defineProps({
   initialTab: {
@@ -165,6 +167,7 @@ const props = defineProps({
 })
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const activeTab = ref(props.initialTab)
 const isLoading = ref(false)
@@ -282,23 +285,39 @@ const handleLogin = async () => {
   clearMessages()
 
   try {
-    const result = await ApiService.loginUser(loginData)
+    const result = await ApiService.loginUserWithFallback(loginData)
     console.log('Login successful:', result)
     
     successMessage.value = 'ورود با موفقیت انجام شد!'
     
-    // Store user data in localStorage
-    if (result.user) {
-      localStorage.setItem('user', JSON.stringify(result.user))
-    }
-    if (result.token) {
-      localStorage.setItem('token', result.token)
+    console.log('🔍 Login result details:', {
+      hasToken: !!result.token,
+      hasAccessToken: !!result.access_token,
+      hasUser: !!result.user,
+      resultKeys: Object.keys(result)
+    })
+    
+    // Update auth store
+    if ((result.token || result.access_token) && result.user) {
+      const token = result.token || result.access_token
+      console.log('🔐 Updating auth store with token:', !!token)
+      authStore.login(result.user, token)
+      
+      // Verify auth state was updated
+      console.log('✅ Auth state after update:', {
+        isAuthenticated: authStore.isAuthenticated.value,
+        hasUser: !!authStore.currentUser.value,
+        hasToken: !!authStore.authToken.value
+      })
+    } else {
+      console.warn('⚠️ Missing token or user data in login response')
     }
     
     // Redirect to profile page after successful login
     setTimeout(() => {
+      console.log('🚀 Attempting redirect to profile...')
       router.push('/profile')
-    }, 1500)
+    }, 500)
     
   } catch (error) {
     console.error('Login failed:', error)
@@ -322,15 +341,26 @@ const handleRegister = async () => {
     
     successMessage.value = 'ثبت نام با موفقیت انجام شد! خوش آمدید.'
     
+    // Update auth store if auto-login after registration
+    if (result.token && result.user) {
+      authStore.login(result.user, result.token)
+    }
+    
     // Reset form
     Object.keys(registerData).forEach(key => {
       registerData[key] = ''
     })
     
-    // Switch to login tab after successful registration
+    // Switch to login tab after successful registration (or redirect if auto-logged in)
     setTimeout(() => {
-      activeTab.value = 'login'
-      clearMessages()
+      if (result.token && result.user) {
+        // Auto-logged in, redirect to profile
+        router.push('/profile')
+      } else {
+        // Not auto-logged in, switch to login tab
+        activeTab.value = 'login'
+        clearMessages()
+      }
     }, 2000)
     
   } catch (error) {

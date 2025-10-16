@@ -5,6 +5,7 @@ import PoemDetailPage from '../views/PoemDetailPage.vue'
 import RegisterPage from '../views/RegisterPage.vue'
 import LoginPage from '../views/LoginPage.vue'
 import ProfilePage from '../views/ProfilePage.vue'
+import { CookieManager } from '../utils/cookieManager.js'
 
 const routes = [
   {
@@ -15,17 +16,20 @@ const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: LoginPage
+    component: LoginPage,
+    meta: { requiresGuest: true }
   },
   {
     path: '/register',
     name: 'Register',
-    component: RegisterPage
+    component: RegisterPage,
+    meta: { requiresGuest: true }
   },
   {
     path: '/profile',
     name: 'Profile',
-    component: ProfilePage
+    component: ProfilePage,
+    meta: { requiresAuth: true }
   },
   {
     path: '/poet/:id',
@@ -44,6 +48,38 @@ const routes = [
 const router = createRouter({
   history: createWebHistory('/poems'), 
   routes
+})
+
+// Navigation guards
+router.beforeEach((to, from, next) => {
+  const isAuthenticated = CookieManager.isAuthenticated()
+  
+  console.log('🛡️ Route guard check:', {
+    to: to.path,
+    from: from.path,
+    isAuthenticated,
+    requiresAuth: to.meta.requiresAuth,
+    requiresGuest: to.meta.requiresGuest,
+    cookieToken: !!CookieManager.getToken(),
+    cookieUser: !!CookieManager.getUserData()
+  })
+  
+  // Check if route requires authentication
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    console.log('🚫 Redirecting to login - authentication required')
+    next('/login')
+    return
+  }
+  
+  // Check if route requires guest (not authenticated)
+  if (to.meta.requiresGuest && isAuthenticated) {
+    console.log('🚫 Redirecting to profile - already authenticated')
+    next('/profile')
+    return
+  }
+  
+  console.log('✅ Route access allowed')
+  next()
 })
 
 export default router
