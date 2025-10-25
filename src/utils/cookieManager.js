@@ -46,7 +46,19 @@ export class CookieManager {
 
   // Check if user is authenticated
   static isAuthenticated() {
-    return this.getToken() !== null
+    const token = this.getToken()
+    const userData = this.getUserData()
+    
+    // More robust check - require both token and user data
+    const isAuth = !!(token && userData)
+    
+    console.log('🔍 CookieManager.isAuthenticated():', {
+      hasToken: !!token,
+      hasUserData: !!userData,
+      isAuthenticated: isAuth
+    })
+    
+    return isAuth
   }
 
   // Clear all authentication data
@@ -54,8 +66,35 @@ export class CookieManager {
     console.log('🧹 CookieManager: Clearing auth data...')
     console.log('Before clear - Token:', !!this.getToken(), 'User:', !!this.getUserData())
     
+    // Remove token from cookies
     this.removeToken()
+    
+    // Remove user data from localStorage
     this.removeUserData()
+    
+    // Additional cleanup - clear any other auth-related data
+    try {
+      // Clear any additional localStorage items that might contain auth data
+      const authKeys = ['auth_token', 'user_token', 'access_token', 'refresh_token', 'auth_data']
+      authKeys.forEach(key => {
+        if (localStorage.getItem(key)) {
+          localStorage.removeItem(key)
+          console.log(`🧹 Removed ${key} from localStorage`)
+        }
+      })
+      
+      // Clear any sessionStorage items
+      const sessionKeys = ['auth_token', 'user_token', 'access_token', 'refresh_token', 'auth_data']
+      sessionKeys.forEach(key => {
+        if (sessionStorage.getItem(key)) {
+          sessionStorage.removeItem(key)
+          console.log(`🧹 Removed ${key} from sessionStorage`)
+        }
+      })
+      
+    } catch (error) {
+      console.warn('⚠️ Error during additional auth cleanup:', error)
+    }
     
     console.log('After clear - Token:', !!this.getToken(), 'User:', !!this.getUserData())
     console.log('✅ CookieManager: Auth data cleared')

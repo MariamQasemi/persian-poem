@@ -655,19 +655,27 @@ export class ApiService {
       
       console.log('📥 Logout response:', {
         status: response.status,
-        ok: response.ok
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
       })
       
       if (!response.ok) {
         await handleApiError(response, 'User Logout')
       }
       
-      console.log('✅ User logged out successfully')
+      const result = await response.json()
+      console.log('✅ User logged out successfully:', result)
       
-      return true
+      return result
       
     } catch (error) {
       console.error('❌ Failed to logout:', error)
+      
+      // Even if the API call fails, we should still allow logout
+      // since JWT tokens are stateless and logout is primarily client-side
+      console.log('⚠️ API logout failed, but proceeding with client-side logout')
+      
       throw error
     }
   }
@@ -693,7 +701,9 @@ export class ApiService {
       
       const response = await fetch(url, {
         method: 'GET',
-        headers: getDefaultHeaders()
+        headers: getDefaultHeaders(),
+        mode: 'cors',
+        redirect: 'follow'
       })
       
       console.log('📥 Blog posts response:', {
@@ -766,15 +776,46 @@ export class ApiService {
       console.log('✍️ Creating new blog post...')
       console.log('📝 Post data:', postData)
       
-      const response = await fetch(`${API_BASE_URL}/blog/posts`, {
+      // Validate required fields
+      if (!postData.title || !postData.content) {
+        throw new Error('عنوان و محتوا الزامی هستند')
+      }
+      
+      // Prepare the payload for the API
+      const payload = {
+        title: postData.title.trim(),
+        content: postData.content.trim(),
+        published: postData.is_published || postData.published || false,
+        tags: postData.tags || []
+      }
+      
+      // Add optional fields if provided
+      if (postData.author_name) {
+        payload.author_name = postData.author_name.trim()
+      }
+      
+      if (postData.author_username) {
+        payload.author_username = postData.author_username.trim()
+      }
+      
+      const url = `${API_BASE_URL}/blog/posts`
+      console.log('📤 Create post URL:', url)
+      console.log('📤 Request payload:', JSON.stringify(payload, null, 2))
+      console.log('📤 Headers:', getDefaultHeaders())
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: getDefaultHeaders(),
-        body: JSON.stringify(postData)
+        body: JSON.stringify(payload),
+        mode: 'cors',
+        redirect: 'follow'
       })
       
       console.log('📥 Create post response:', {
         status: response.status,
-        ok: response.ok
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
       })
       
       if (!response.ok) {
@@ -788,6 +829,9 @@ export class ApiService {
       
     } catch (error) {
       console.error('❌ Failed to create blog post:', error)
+      if (error?.status) {
+        console.error('Create post error status:', error.status)
+      }
       throw error
     }
   }

@@ -26,7 +26,7 @@
       </div>
 
 
-      <!-- Auth Buttons -->
+      <!-- Nav + Auth Buttons -->
       <div class="navbar-auth">
         <!-- Show Login/Register buttons when not authenticated -->
         <template v-if="!isAuthenticated">
@@ -38,22 +38,30 @@
           </router-link>
         </template>
         
-        <!-- Show Profile button when authenticated (but not on profile page) -->
-        <template v-else-if="route.name !== 'Profile'">
-          <router-link to="/profile" class="auth-btn profile-btn">
-            پروفایل
-          </router-link>
-          <!-- Debug button - remove in production -->
-          <button @click="forceRefresh" class="debug-btn" style="margin-right: 10px; padding: 5px; background: #f39c12; color: white; border: none; border-radius: 4px; font-size: 12px;">
-            🔄
-          </button>
-        </template>
-        
-        <!-- Show Logout button when on profile page -->
+        <!-- Show authenticated user buttons when authenticated -->
         <template v-else>
-          <button @click="handleLogout" class="auth-btn logout-btn">
-            خروج
-          </button>
+          <!-- Show blog button -->
+          <router-link to="/blog" class="auth-btn login-btn" style="min-width: 60px;">
+            بلاگ
+          </router-link>
+          
+          <!-- Show Profile button when not on profile page -->
+          <template v-if="route.name !== 'Profile'">
+            <router-link to="/profile" class="auth-btn profile-btn">
+              پروفایل
+            </router-link>
+            <!-- Debug button - remove in production -->
+            <button @click="forceRefresh" class="debug-btn" style="margin-right: 10px; padding: 5px; background: #f39c12; color: white; border: none; border-radius: 4px; font-size: 12px;">
+              🔄
+            </button>
+          </template>
+          
+          <!-- Show Logout button when on profile page -->
+          <template v-else>
+            <button @click="handleLogout" class="auth-btn logout-btn">
+              خروج
+            </button>
+          </template>
         </template>
       </div>
     </div>
@@ -91,7 +99,7 @@ const isAuthenticated = computed(() => {
   authStateUpdate.value
   
   // Check both auth store and cookies
-  const authStoreAuth = authStore.isAuthenticated
+  const authStoreAuth = authStore.isAuthenticated.value
   const cookieAuth = CookieManager.isAuthenticated()
   const hasToken = !!CookieManager.getToken()
   const hasUser = !!CookieManager.getUserData()
@@ -105,7 +113,8 @@ const isAuthenticated = computed(() => {
     hasToken,
     hasUser,
     result,
-    authStateUpdate: authStateUpdate.value
+    authStateUpdate: authStateUpdate.value,
+    timestamp: new Date().toISOString()
   })
   
   return result
@@ -141,14 +150,55 @@ const handleLogout = async () => {
     // Clear local auth state
     authStore.logout()
     
+    // Force UI update multiple times to ensure reactivity
+    authStateUpdate.value++
+    
+    // Wait a bit for state to clear
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Force another update
+    authStateUpdate.value++
+    
     // Redirect to home page
+    console.log('🏠 Redirecting to home page after logout')
     router.push('/')
+    
+    // Force a final update after navigation
+    setTimeout(() => {
+      authStateUpdate.value++
+      console.log('🔄 Final auth state update after logout')
+    }, 200)
+    
+    // Show success message (optional)
+    console.log('✅ Logout completed successfully')
     
   } catch (error) {
     console.error('Logout error:', error)
+    
     // Even if backend logout fails, clear local state
+    // since JWT tokens are stateless and logout is primarily client-side
+    console.log('⚠️ Backend logout failed, but clearing local state anyway')
     authStore.logout()
+    
+    // Force UI update multiple times
+    authStateUpdate.value++
+    
+    // Wait a bit for state to clear
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Force another update
+    authStateUpdate.value++
+    
+    // Redirect to home page
     router.push('/')
+    
+    // Force a final update after navigation
+    setTimeout(() => {
+      authStateUpdate.value++
+      console.log('🔄 Final auth state update after client-side logout')
+    }, 200)
+    
+    console.log('✅ Client-side logout completed')
   }
 }
 

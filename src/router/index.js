@@ -5,6 +5,7 @@ import PoemDetailPage from '../views/PoemDetailPage.vue'
 import RegisterPage from '../views/RegisterPage.vue'
 import LoginPage from '../views/LoginPage.vue'
 import ProfilePage from '../views/ProfilePage.vue'
+import BlogPage from '../views/BlogPage.vue'
 import { CookieManager } from '../utils/cookieManager.js'
 
 const routes = [
@@ -12,6 +13,11 @@ const routes = [
     path: '/',
     name: 'Home',
     component: HomePage
+  },
+  {
+    path: '/blog',
+    name: 'Blog',
+    component: BlogPage
   },
   {
     path: '/login',
@@ -52,11 +58,16 @@ const router = createRouter({
 
 // Navigation guards
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = CookieManager.isAuthenticated()
+  // More robust authentication check
+  const hasToken = !!CookieManager.getToken()
+  const hasUserData = !!CookieManager.getUserData()
+  const isAuthenticated = hasToken && hasUserData
   
   console.log('🛡️ Route guard check:', {
     to: to.path,
     from: from.path,
+    hasToken,
+    hasUserData,
     isAuthenticated,
     requiresAuth: to.meta.requiresAuth,
     requiresGuest: to.meta.requiresGuest,

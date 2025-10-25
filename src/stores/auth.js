@@ -65,6 +65,7 @@ export const useAuthStore = () => {
   const logout = () => {
     console.log('🚪 Auth store logout called')
     
+    // Clear auth state
     authState.isAuthenticated = false
     authState.user = null
     authState.token = null
@@ -86,6 +87,20 @@ export const useAuthStore = () => {
     }))
     
     console.log('📡 Auth state change event emitted')
+    
+    // Additional cleanup - clear any other stored data if needed
+    try {
+      // Clear any additional localStorage items if they exist
+      const keysToRemove = ['user_preferences', 'last_visited', 'temp_data']
+      keysToRemove.forEach(key => {
+        if (localStorage.getItem(key)) {
+          localStorage.removeItem(key)
+          console.log(`🧹 Removed ${key} from localStorage`)
+        }
+      })
+    } catch (error) {
+      console.warn('⚠️ Error during additional cleanup:', error)
+    }
   }
 
   const updateUser = (userData) => {

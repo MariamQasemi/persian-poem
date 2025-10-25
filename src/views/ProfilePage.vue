@@ -141,23 +141,7 @@
           </div>
         </div>
 
-        <!-- User List Section -->
-        <div class="users-section">
-          <h2 class="section-title">لیست کاربران</h2>
-          <div class="users-list">
-            <div v-if="isLoading" class="loading">در حال بارگذاری...</div>
-            <div v-else-if="users.length === 0" class="no-users">هیچ کاربری یافت نشد</div>
-            <div v-else>
-              <div v-for="user in users" :key="user.id" class="user-item">
-                <div class="user-info">
-                  <span class="user-name">{{ user.name || user.full_name || 'نامشخص' }}</span>
-                  <span class="user-email">{{ user.email }}</span>
-                </div>
-                <div class="user-date">{{ formatDate(user.created_at) }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        
 
         <!-- Success/Error Messages -->
         <div v-if="successMessage" class="success-message">
@@ -515,11 +499,6 @@ onMounted(() => {
   font-family: 'Vazirmatn', sans-serif;
 }
 
-.profile-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
-}
 
 .user-management-section,
 .users-section {
