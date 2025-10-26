@@ -251,7 +251,7 @@ onUnmounted(() => {
 
 .navbar-container {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   width: 100%;
   height: 100%;
@@ -263,10 +263,10 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 15px;
-  flex: 1;
   min-width: 0;
   overflow: visible;
-  margin-right: 350px;
+  flex: 0 0 auto;
+  margin-inline-start: 12px;
 }
 
 .sidebar-toggle-btn {
@@ -280,6 +280,7 @@ onUnmounted(() => {
   transition: all 0.3s ease;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
 }
 
 .sidebar-toggle-btn:hover {
@@ -356,6 +357,9 @@ onUnmounted(() => {
   gap: 12px;
   flex-shrink: 0;
   max-width: 200px;
+  margin-inline-start: auto;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .auth-btn {
@@ -439,16 +443,15 @@ onUnmounted(() => {
     margin-left: 10px; /* Add space between toggle and logo */
   }
   
-  .navbar-brand {
-    gap: 10px;
-    flex: 1; /* Allow brand to take available space */
-    justify-content: flex-start; /* Align to start */
-  }
-  
-  .logo {
-    margin-right: auto; /* Push logo to the right side */
-    padding: 6px; /* Reduce padding on mobile */
-  }
+.navbar-brand {
+  gap: 10px;
+  flex: 1; /* Allow brand to take available space */
+  justify-content: flex-start; /* Align to start */
+}
+
+.logo {
+  padding: 6px; /* Reduce padding on mobile */
+}
   
   .logo-text {
     font-size: 1rem;

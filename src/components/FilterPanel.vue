@@ -488,15 +488,15 @@ onUnmounted(() => {
 .filter-sidebar {
   position: fixed;
   right: 0;
-  top: 0;
+  top: 85px;
   bottom: 0;
   width: 320px;
   background: #1a1a1a;
   border-left: 1px solid #CDC7C6;
   display: flex;
   flex-direction: column;
-  z-index: 1000;
   transition: transform 0.3s ease;
+  z-index: 2000; 
 }
 
 /* Sidebar Header */
