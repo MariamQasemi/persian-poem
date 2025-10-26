@@ -5,7 +5,17 @@ export class CookieManager {
     const expires = new Date()
     expires.setTime(expires.getTime() + (expiresInDays * 24 * 60 * 60 * 1000))
     
-    document.cookie = `auth_token=${token}; expires=${expires.toUTCString()}; path=/; secure; samesite=strict`
+    // Only use secure flag if we're on HTTPS
+    const isSecure = window.location.protocol === 'https:'
+    const secureFlag = isSecure ? '; secure' : ''
+    
+    document.cookie = `auth_token=${token}; expires=${expires.toUTCString()}; path=/; samesite=lax${secureFlag}`
+    
+    console.log('🍪 Cookie set:', {
+      isSecure,
+      path: '/',
+      expires: expires.toUTCString()
+    })
   }
 
   // Get JWT token from cookies

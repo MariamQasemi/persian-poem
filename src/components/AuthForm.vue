@@ -314,10 +314,18 @@ const handleLogin = async () => {
     }
     
     // Redirect to profile page after successful login
-    setTimeout(() => {
-      console.log('🚀 Attempting redirect to profile...')
+    console.log('🚀 Attempting redirect to profile...')
+    
+    // Give auth state time to propagate
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    try {
+      // Use window.location for more reliable redirect on server
+      window.location.href = '/poems/profile'
+    } catch (err) {
+      console.warn('Direct redirect failed, trying router:', err)
       router.push('/profile')
-    }, 500)
+    }
     
   } catch (error) {
     console.error('Login failed:', error)

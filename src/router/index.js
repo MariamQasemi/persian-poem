@@ -72,8 +72,16 @@ router.beforeEach((to, from, next) => {
     requiresAuth: to.meta.requiresAuth,
     requiresGuest: to.meta.requiresGuest,
     cookieToken: !!CookieManager.getToken(),
-    cookieUser: !!CookieManager.getUserData()
+    cookieUser: !!CookieManager.getUserData(),
+    documentCookie: document.cookie
   })
+  
+  // Allow navigation if user is being redirected from login
+  if (from.path === '/login' && isAuthenticated) {
+    console.log('✅ Allowing redirect from login with auth')
+    next()
+    return
+  }
   
   // Check if route requires authentication
   if (to.meta.requiresAuth && !isAuthenticated) {
