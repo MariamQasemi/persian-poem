@@ -135,13 +135,13 @@
                 @blur="goToPage"
                 type="number"
                 :min="1"
-                :max="searchStore.totalPages"
+                :max="filteredResultsCount"
                 class="page-input"
               />
-              <span class="page-label">از {{ searchStore.totalPages }}</span>
+              <span class="page-label">از {{ filteredResultsCount }}</span>
             </div>
             
-            <button @click="nextPoem" :disabled="searchStore.currentPage === searchStore.totalPages" class="nav-arrow nav-next">
+            <button @click="nextPoem" :disabled="searchStore.currentPage === filteredResultsCount" class="nav-arrow nav-next">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
@@ -162,6 +162,11 @@ import { ApiService } from '../services/api.js'
 const router = useRouter()
 const searchStore = useSearchStore()
 const pageInput = ref(searchStore.currentPage)
+
+// Computed property for total filtered results count
+const filteredResultsCount = computed(() => {
+  return searchStore.filteredResults.length
+})
 
 // Access store values directly to maintain reactivity
 // Don't destructure reactive values as it breaks reactivity
@@ -192,7 +197,7 @@ const coupletsPreview = computed(() => {
 
 // Navigation methods for single poem display
 const nextPoem = () => {
-  if (searchStore.currentPage < searchStore.totalPages) {
+  if (searchStore.currentPage < filteredResultsCount.value) {
     searchStore.nextPage()
   }
 }
@@ -206,7 +211,7 @@ const prevPoem = () => {
 // Go to specific page
 const goToPage = () => {
   const page = parseInt(pageInput.value)
-  if (page >= 1 && page <= searchStore.totalPages) {
+  if (page >= 1 && page <= filteredResultsCount.value) {
     searchStore.setCurrentPage(page)
   } else {
     // Reset to current page if invalid input

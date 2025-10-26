@@ -132,15 +132,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useSearchStore } from '../stores/search'
+import { useAuthStore } from '../stores/auth.js'
 import { ApiService } from '../services/api.js'
 
 const searchStore = useSearchStore()
+const authStore = useAuthStore()
 const availablePoets = ref([])
 const showSidebar = ref(false)
 const poetSearchQuery = ref('')
 const sidebar = ref(null)
+const isSavingPoets = ref(false)
+const saveTimeout = ref(null)
 
 const selectedPoets = computed({
   get: () => searchStore.selectedPoets,
@@ -185,14 +189,160 @@ const selectPoet = async (poet) => {
     searchStore.addPoetFilter(poet.id)
   }
   
+  // Save to backend if user is authenticated (debounced - waits 1 minute)
+  saveDefaultPoets()
+  
   // Auto-apply filter when poet is selected/deselected
   if (searchStore.searchQuery.trim()) {
     await applyFilters()
   }
 }
 
+const saveDefaultPoetsImmediate = async () => {
+  // Only save if user is authenticated
+  if (!authStore.isAuthenticated.value) {
+    return
+  }
+  
+  try {
+    isSavingPoets.value = true
+    console.log('💾 Saving default poets to backend...')
+    
+    // Convert poet IDs to poet names for saving
+    const poetNames = searchStore.selectedPoets.map(poetId => {
+      const poet = availablePoets.value.find(p => p.id === poetId)
+      return poet ? poet.name : null
+    }).filter(name => name !== null)
+    
+    console.log('💾 Saving poets:', poetNames)
+    
+    try {
+      // Try to save to backend
+      const updatedUser = await ApiService.updateDefaultPoets(poetNames)
+      
+      console.log('✅ Default poets saved successfully to backend')
+      
+      // Update auth store with updated user data
+      if (updatedUser && authStore.currentUser.value) {
+        authStore.updateUser(updatedUser)
+      }
+      
+      // Also save to localStorage as backup
+      const userEmail = authStore.currentUser.value?.email
+      if (userEmail) {
+        localStorage.setItem(`favourite_poets_${userEmail}`, JSON.stringify(poetNames))
+      }
+      
+    } catch (backendError) {
+      console.warn('⚠️ Backend save failed, using localStorage fallback:', backendError)
+      
+      // Fallback: Save to localStorage
+      const userEmail = authStore.currentUser.value?.email
+      if (userEmail) {
+        localStorage.setItem(`favourite_poets_${userEmail}`, JSON.stringify(poetNames))
+        console.log('✅ Saved to localStorage as fallback')
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ Failed to save default poets:', error)
+    // Don't show error to user as this is a background operation
+  } finally {
+    isSavingPoets.value = false
+  }
+}
+
+// Debounced save function - saves after 1 minute of inactivity
+const saveDefaultPoets = () => {
+  // Only save if user is authenticated
+  if (!authStore.isAuthenticated.value) {
+    return
+  }
+  
+  // Clear any existing timeout
+  if (saveTimeout.value) {
+    clearTimeout(saveTimeout.value)
+    console.log('⏱️ Debouncing save, waiting 1 minute...')
+  }
+  
+  // Set new timeout to save after 1 minute
+  saveTimeout.value = setTimeout(() => {
+    console.log('⏱️ 1 minute passed, now saving default poets...')
+    saveDefaultPoetsImmediate()
+  }, 60000) // 1 minute = 60000 milliseconds
+}
+
+const loadDefaultPoets = async () => {
+  // Only load if user is authenticated
+  if (!authStore.isAuthenticated.value) {
+    console.log('👤 User not authenticated, using default poets')
+    return false
+  }
+  
+  try {
+    console.log('👤 Loading user saved favourite poets...')
+    
+    // Try to load from backend first
+    let favouritePoets = null
+    try {
+      const currentUser = await ApiService.getCurrentUser()
+      
+      if (currentUser && currentUser.favourite_poets && Array.isArray(currentUser.favourite_poets) && currentUser.favourite_poets.length > 0) {
+        console.log('✅ Found saved favourite poets in backend:', currentUser.favourite_poets)
+        favouritePoets = currentUser.favourite_poets
+      }
+    } catch (backendError) {
+      console.warn('⚠️ Failed to load from backend, trying localStorage:', backendError)
+    }
+    
+    // If backend doesn't have it, try localStorage
+    if (!favouritePoets) {
+      const userEmail = authStore.currentUser.value?.email
+      if (userEmail) {
+        const savedData = localStorage.getItem(`favourite_poets_${userEmail}`)
+        if (savedData) {
+          favouritePoets = JSON.parse(savedData)
+          console.log('✅ Found saved favourite poets in localStorage:', favouritePoets)
+        }
+      }
+    }
+    
+    // If we found any saved poets, use them
+    if (favouritePoets && favouritePoets.length > 0) {
+      // Map poet names to IDs
+      const savedPoetIds = favouritePoets
+        .map(poetName => {
+          const poet = availablePoets.value.find(p => p.name === poetName)
+          return poet ? poet.id : null
+        })
+        .filter(id => id !== null)
+      
+      if (savedPoetIds.length > 0) {
+        console.log('✅ Using saved favourite poets:', savedPoetIds)
+        searchStore.setSelectedPoets(savedPoetIds)
+        return true
+      }
+    }
+    
+    console.log('ℹ️ No saved favourite poets found')
+    return false
+  } catch (error) {
+    console.error('❌ Failed to load favourite poets:', error)
+    return false
+  }
+}
+
 const clearAllFilters = async () => {
+  // Clear any pending debounced save
+  if (saveTimeout.value) {
+    clearTimeout(saveTimeout.value)
+    saveTimeout.value = null
+  }
+  
   searchStore.clearFilters()
+  
+  // Save immediately (not debounced) when clearing all filters
+  await saveDefaultPoetsImmediate()
   
   // Auto-apply filter after clearing
   if (searchStore.searchQuery.trim()) {
@@ -242,7 +392,7 @@ const applyFilters = async () => {
   }
 }
 
-onMounted(async () => {
+const loadPoets = async () => {
   try {
     console.log('FilterPanel: Loading poets from API...')
     // Load poets from API
@@ -253,8 +403,12 @@ onMounted(async () => {
     searchStore.setAvailablePoets(poets)
     console.log('FilterPanel: availablePoets.value set to:', availablePoets.value)
     
+    // Try to load saved default poets for authenticated users
+    const hasSavedPoets = await loadDefaultPoets()
+    
     // Set default selected poets only if no poets are currently selected
-    if (searchStore.selectedPoets.length === 0 && poets.length > 0) {
+    // and no saved poets were found
+    if (!hasSavedPoets && searchStore.selectedPoets.length === 0 && poets.length > 0) {
       // Default poets: حافظ، سعدی، فردوسی، مولوی، خیام
       const defaultPoetNames = ['حافظ', 'سعدی', 'فردوسی', 'مولوی', 'خیام']
       console.log('FilterPanel: Looking for default poets:', defaultPoetNames)
@@ -267,10 +421,6 @@ onMounted(async () => {
         searchStore.setSelectedPoets(defaultPoets)
       }
     }
-    
-    // Listen for sidebar toggle events from Navbar
-    window.addEventListener('toggleSidebar', toggleSidebar)
-    
   } catch (err) {
     console.error('FilterPanel: Error loading poets:', err)
     console.error('FilterPanel: Error details:', err.message, err.stack)
@@ -278,11 +428,50 @@ onMounted(async () => {
     availablePoets.value = []
     searchStore.setAvailablePoets([])
   }
+}
+
+const handleAuthStateChanged = async (event) => {
+  console.log('🔐 Auth state changed, reloading poets...')
+  
+  // If user logged out and there's a pending save, save it immediately
+  if (!event.detail.isAuthenticated && saveTimeout.value && authStore.isAuthenticated.value) {
+    console.log('🔐 User logging out, saving poets immediately before logout...')
+    clearTimeout(saveTimeout.value)
+    await saveDefaultPoetsImmediate()
+  }
+  
+  // Clear timeout if logging out
+  if (!event.detail.isAuthenticated) {
+    if (saveTimeout.value) {
+      clearTimeout(saveTimeout.value)
+      saveTimeout.value = null
+    }
+  }
+  
+  await loadPoets()
+}
+
+onMounted(async () => {
+  // Load poets
+  await loadPoets()
+  
+  // Listen for sidebar toggle events from Navbar
+  window.addEventListener('toggleSidebar', toggleSidebar)
+  
+  // Listen for authentication state changes
+  window.addEventListener('authStateChanged', handleAuthStateChanged)
 })
 
 onUnmounted(() => {
-  // Cleanup event listener
+  // Clear any pending save timeout
+  if (saveTimeout.value) {
+    clearTimeout(saveTimeout.value)
+    console.log('🧹 Cleaning up save timeout')
+  }
+  
+  // Cleanup event listeners
   window.removeEventListener('toggleSidebar', toggleSidebar)
+  window.removeEventListener('authStateChanged', handleAuthStateChanged)
 })
 </script>
 

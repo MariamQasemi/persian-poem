@@ -94,9 +94,10 @@ const handleApiError = async (response, operation = 'API request') => {
 }
 
 export class ApiService {
-  static async searchPoems(query, poetFilters = []) {
+  static async searchPoems(query, poetFilters = [], options = {}) {
     try {
-      console.log('Searching for:', query, 'with poets:', poetFilters)
+      const { page = 1, limit = 50 } = options
+      console.log('Searching for:', query, 'with poets:', poetFilters, 'page:', page, 'limit:', limit)
       
       // Build URL manually to ensure proper encoding
       let url = `${API_BASE_URL}/search?`
@@ -112,8 +113,8 @@ export class ApiService {
         url += `&poet=${encodeURIComponent(poetParam)}`
       }
       
-      // Use maximum allowed limit (50) to get as many results as possible
-      url += `&limit=50`
+      // Add pagination parameters
+      url += `&limit=${limit}&offset=${(page - 1) * limit}`
       
       console.log('Final URL:', url)
       
@@ -143,7 +144,9 @@ export class ApiService {
         console.log('API returned empty poems array')
         return {
           results: [],
-          totalResults: 0
+          totalResults: 0,
+          totalPages: 0,
+          currentPage: page
         }
       }
       
@@ -186,12 +189,19 @@ export class ApiService {
         }
       })
       
+      const totalResults = data.total || data.total_results || transformedResults.length
+      const totalPages = Math.ceil(totalResults / limit)
+      
       console.log('Transformed results:', transformedResults.length, 'results')
-      console.log('Total results from API:', data.total_results)
+      console.log('Total results from API:', totalResults)
+      console.log('Total pages:', totalPages)
       
       const returnValue = {
         results: transformedResults,
-        totalResults: data.total_results || transformedResults.length
+        totalResults: totalResults,
+        totalPages: totalPages,
+        currentPage: page,
+        limit: limit
       }
       
       console.log('API Service returning:', returnValue)
@@ -608,6 +618,78 @@ export class ApiService {
       
     } catch (error) {
       console.error('❌ Failed to update profile:', error)
+      throw error
+    }
+  }
+
+  // Update user's default poets
+  static async updateDefaultPoets(defaultPoets) {
+    try {
+      console.log('✏️ Updating user favourite poets...')
+      console.log('📝 Favourite poets:', defaultPoets)
+      
+      // Get current user data
+      const currentUser = await this.getCurrentUser()
+      console.log('👤 Current user data:', currentUser)
+      
+      // Prepare full user object with favourite_poets updated
+      const updateData = {
+        favourite_poets: defaultPoets
+      }
+      
+      // Include required fields if they exist
+      if (currentUser.email) {
+        updateData.email = currentUser.email
+      }
+      if (currentUser.full_name !== undefined) {
+        updateData.full_name = currentUser.full_name
+      }
+      if (currentUser.is_active !== undefined) {
+        updateData.is_active = currentUser.is_active
+      }
+      
+      console.log('📤 Sending update request with data:', updateData)
+      console.log('📤 Request URL:', `${API_BASE_URL}/auth/me`)
+      console.log('📤 Request method: PUT')
+      
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: 'PUT',
+        headers: getDefaultHeaders(),
+        body: JSON.stringify(updateData)
+      })
+      
+      console.log('📥 Response status:', response.status)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('❌ Error response:', errorText)
+        
+        // If PUT fails with 405, try POST as alternative
+        if (response.status === 405) {
+          console.log('⚠️ PUT method not allowed, trying POST...')
+          const postResponse = await fetch(`${API_BASE_URL}/auth/preferences`, {
+            method: 'POST',
+            headers: getDefaultHeaders(),
+            body: JSON.stringify({ favourite_poets: defaultPoets })
+          })
+          
+          if (postResponse.ok) {
+            const result = await postResponse.json()
+            console.log('✅ Favourite poets updated via POST:', result)
+            return result
+          }
+        }
+        
+        throw new Error(`Failed to update favourite poets: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      console.log('✅ Favourite poets updated successfully:', result)
+      
+      return result
+      
+    } catch (error) {
+      console.error('❌ Failed to update favourite poets:', error)
       throw error
     }
   }

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { ApiService } from '../services/api.js'
 
 export const useSearchStore = defineStore('search', () => {
   // State
@@ -11,6 +12,8 @@ export const useSearchStore = defineStore('search', () => {
   const availablePoets = ref([])
   const currentPage = ref(1)
   const totalResults = ref(0)
+  const totalPages = ref(0)
+  const allResults = ref([]) // Store all results for client-side pagination
 
   // Getters
   const hasResults = computed(() => {
@@ -18,6 +21,7 @@ export const useSearchStore = defineStore('search', () => {
     console.log('hasResults computed:', result, 'searchResults.value.length:', searchResults.value.length)
     return result
   })
+  
   const filteredResults = computed(() => {
     if (selectedPoets.value.length === 0) {
       return searchResults.value
@@ -29,15 +33,12 @@ export const useSearchStore = defineStore('search', () => {
     return filtered
   })
   
-  const totalPages = computed(() => {
-    // 1 poem per page, so total pages = number of filtered results
-    const pages = filteredResults.value.length
-    console.log('totalPages computed:', pages, 'filteredResults.length:', filteredResults.value.length)
-    return pages
-  })
-  
   const hasMorePages = computed(() => {
     return currentPage.value < totalPages.value
+  })
+  
+  const canLoadMore = computed(() => {
+    return allResults.value.length < totalResults.value
   })
 
   // Actions
@@ -68,8 +69,61 @@ export const useSearchStore = defineStore('search', () => {
 
   const setSearchResults = (results) => {
     console.log('Store setSearchResults called with:', results.length, 'results')
-    searchResults.value = results
+    
+    // Merge with existing results if this is a pagination load
+    if (allResults.value.length > 0 && currentPage.value > 1) {
+      // This is a paginated load, merge with existing results
+      allResults.value = [...allResults.value, ...results]
+    } else {
+      // This is a new search or first page
+      allResults.value = results
+    }
+    
+    searchResults.value = allResults.value
     console.log('Store searchResults.value after setting:', searchResults.value.length)
+    console.log('Store allResults.value length:', allResults.value.length)
+  }
+  
+  const setTotalPages = (pages) => {
+    totalPages.value = pages
+    console.log('Store setTotalPages called with:', pages)
+  }
+  
+  const setTotalResults = (total) => {
+    totalResults.value = total
+    console.log('Store setTotalResults called with:', total)
+  }
+  
+  const loadMoreResults = async () => {
+    if (!canLoadMore.value || isLoading.value) {
+      return
+    }
+    
+    isLoading.value = true
+    currentPage.value++
+    
+    try {
+      const nextPageResults = await ApiService.searchPoems(searchQuery.value, selectedPoets.value, {
+        page: currentPage.value,
+        limit: 50
+      })
+      
+      // Append new results to allResults
+      allResults.value = [...allResults.value, ...nextPageResults.results]
+      searchResults.value = allResults.value
+      
+      // Update total results if provided
+      if (nextPageResults.totalResults) {
+        totalResults.value = nextPageResults.totalResults
+      }
+      
+      console.log('Load more results completed. Total results:', allResults.value.length)
+    } catch (error) {
+      console.error('Error loading more results:', error)
+      currentPage.value-- // Revert page increment on error
+    } finally {
+      isLoading.value = false
+    }
   }
 
   const setAvailablePoets = (poets) => {
@@ -86,10 +140,6 @@ export const useSearchStore = defineStore('search', () => {
 
   const clearError = () => {
     error.value = null
-  }
-  
-  const setTotalResults = (total) => {
-    totalResults.value = total
   }
   
   const setCurrentPage = (page) => {
@@ -111,10 +161,14 @@ export const useSearchStore = defineStore('search', () => {
   const resetPagination = () => {
     currentPage.value = 1
     totalResults.value = 0
+    totalPages.value = 0
+    allResults.value = []
+    searchResults.value = []
   }
 
   const clearResults = () => {
     searchResults.value = []
+    allResults.value = []
     error.value = null
   }
 
@@ -128,12 +182,14 @@ export const useSearchStore = defineStore('search', () => {
     availablePoets,
     currentPage,
     totalResults,
+    totalPages,
+    allResults,
     
     // Getters
     hasResults,
     filteredResults,
-    totalPages,
     hasMorePages,
+    canLoadMore,
     
     // Actions
     setSearchQuery,
@@ -142,15 +198,17 @@ export const useSearchStore = defineStore('search', () => {
     removePoetFilter,
     clearFilters,
     setSearchResults,
+    setTotalPages,
+    setTotalResults,
     setAvailablePoets,
     setLoading,
     setError,
     clearError,
-    setTotalResults,
     setCurrentPage,
     nextPage,
     prevPage,
     resetPagination,
-    clearResults
+    clearResults,
+    loadMoreResults
   }
 })
