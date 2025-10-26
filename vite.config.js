@@ -20,7 +20,13 @@ export default defineConfig({
       '/api': {
         target: 'http://165.227.205.3',
         changeOrigin: true,
-        rewrite: (path) => path
+        rewrite: (path) => path,
+        secure: false,
+        configure: (proxy, options) => {
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('🔄 Proxying:', req.method, req.url);
+          });
+        }
       }
     }
   }

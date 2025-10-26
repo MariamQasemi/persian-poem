@@ -1,5 +1,9 @@
 // API service for backend communication
-const API_BASE_URL = '/api' // Using Vite proxy to avoid CORS issues
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? '/api'  // Production: use relative path
+  : '/api'  // Development: use proxy, but we can also try direct
+  
+const BACKEND_URL = 'http://165.227.205.3' // Direct backend URL
 
 // Helper function to get default headers with auth token
 const getDefaultHeaders = () => {
@@ -383,9 +387,9 @@ export class ApiService {
     console.log('🔄 Starting login with fallback attempts...')
     
     const loginAttempts = [
-      // Attempt 1: Standard email/password (correct format)
+      // Attempt 1: username/password (backend expects this based on 422 error)
       {
-        email: credentials.email?.trim(),
+        username: credentials.email?.trim(),
         password: credentials.password
       }
     ]
@@ -395,10 +399,25 @@ export class ApiService {
       console.log(`🔄 Login attempt ${i + 1}:`, attempt)
       
       try {
+        // Try form-encoded data instead of JSON (OAuth2 format)
+        const formData = new URLSearchParams()
+        formData.append('username', attempt.username)
+        formData.append('password', attempt.password)
+        
+        const body = formData.toString()
+        console.log('📋 Request body (form-encoded):', body)
+        
+        const headers = {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json'
+        }
+        
+        console.log('📋 Request headers:', headers)
+        
         const response = await fetch(`${API_BASE_URL}/auth/authenticate`, {
           method: 'POST',
-          headers: getDefaultHeaders(),
-          body: JSON.stringify(attempt)
+          headers: headers,
+          body: body
         })
         
         console.log(`📥 Login attempt ${i + 1} response:`, {
@@ -438,9 +457,9 @@ export class ApiService {
         hasPassword: !!credentials.password
       })
       
-      // Prepare request data
+      // Prepare request data - backend expects username, not email
       const requestData = {
-        email: credentials.email?.trim(),
+        username: credentials.email?.trim(), // Backend expects username field
         password: credentials.password
       }
       
@@ -449,7 +468,10 @@ export class ApiService {
       
       const response = await fetch(`${API_BASE_URL}/auth/authenticate`, {
         method: 'POST',
-        headers: getDefaultHeaders(),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify(requestData)
       })
       
