@@ -141,7 +141,11 @@
               <span class="page-label">از {{ filteredResultsCount }}</span>
             </div>
             
-            <button @click="nextPoem" :disabled="searchStore.currentPage === filteredResultsCount" class="nav-arrow nav-next">
+            <button 
+              @click="nextPoem" 
+              :disabled="searchStore.currentPage >= filteredResultsCount" 
+              class="nav-arrow nav-next"
+            >
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
@@ -163,23 +167,23 @@ const router = useRouter()
 const searchStore = useSearchStore()
 const pageInput = ref(searchStore.currentPage)
 
-// Computed property for total filtered results count
+// Computed property for total results count (use all search results, not filtered)
 const filteredResultsCount = computed(() => {
-  return searchStore.filteredResults.length
+  return searchStore.searchResults.length
 })
 
 // Access store values directly to maintain reactivity
 // Don't destructure reactive values as it breaks reactivity
 
-// Current poem for single display
+// Current poem for single display (use all search results for navigation)
 const currentPoem = computed(() => {
-  console.log('ResultList - filteredResults:', searchStore.filteredResults)
+  console.log('ResultList - searchResults:', searchStore.searchResults)
   console.log('ResultList - current page:', searchStore.currentPage)
-  if (!searchStore.filteredResults.length) {
-    console.log('ResultList - No filtered results')
+  if (!searchStore.searchResults.length) {
+    console.log('ResultList - No search results')
     return null
   }
-  const poem = searchStore.filteredResults[searchStore.currentPage - 1]
+  const poem = searchStore.searchResults[searchStore.currentPage - 1]
   console.log('ResultList - currentPoem:', poem)
   return poem
 })
@@ -196,10 +200,27 @@ const coupletsPreview = computed(() => {
 })
 
 // Navigation methods for single poem display
-const nextPoem = () => {
-  if (searchStore.currentPage < filteredResultsCount.value) {
-    searchStore.nextPage()
+const nextPoem = async () => {
+  const currentCount = filteredResultsCount.value
+  const currentPage = searchStore.currentPage
+  
+  // Check if we need to load more results when near the end of current batch
+  // Load more when we're within 10 poems of the end and there are more results available
+  if (currentPage >= currentCount - 10 && searchStore.totalResults > currentCount) {
+    console.log('📥 Loading more results as user approaches end...')
+    console.log('Current loaded:', currentCount, 'Total available:', searchStore.totalResults)
+    try {
+      await searchStore.loadMoreResults()
+      console.log('Loaded more results, now have:', searchStore.searchResults.length)
+    } catch (error) {
+      console.error('Failed to load more results:', error)
+    }
   }
+  
+  // Always try to go to next page (it will check bounds internally)
+  searchStore.nextPage()
+  
+  console.log('After nextPage, currentPage is now:', searchStore.currentPage)
 }
 
 const prevPoem = () => {

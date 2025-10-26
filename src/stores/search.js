@@ -14,6 +14,7 @@ export const useSearchStore = defineStore('search', () => {
   const totalResults = ref(0)
   const totalPages = ref(0)
   const allResults = ref([]) // Store all results for client-side pagination
+  const apiPageNumber = ref(1) // Track which API page we're on
 
   // Getters
   const hasResults = computed(() => {
@@ -70,18 +71,21 @@ export const useSearchStore = defineStore('search', () => {
   const setSearchResults = (results) => {
     console.log('Store setSearchResults called with:', results.length, 'results')
     
-    // Merge with existing results if this is a pagination load
-    if (allResults.value.length > 0 && currentPage.value > 1) {
-      // This is a paginated load, merge with existing results
-      allResults.value = [...allResults.value, ...results]
-    } else {
-      // This is a new search or first page
-      allResults.value = results
-    }
+    // This is a new search - reset everything
+    allResults.value = results
+    searchResults.value = results
+    apiPageNumber.value = 1
     
-    searchResults.value = allResults.value
     console.log('Store searchResults.value after setting:', searchResults.value.length)
     console.log('Store allResults.value length:', allResults.value.length)
+  }
+  
+  const appendSearchResults = (results) => {
+    console.log('Store appendSearchResults called with:', results.length, 'results')
+    allResults.value = [...allResults.value, ...results]
+    searchResults.value = allResults.value
+    apiPageNumber.value++
+    console.log('Store total results now:', allResults.value.length)
   }
   
   const setTotalPages = (pages) => {
@@ -95,22 +99,32 @@ export const useSearchStore = defineStore('search', () => {
   }
   
   const loadMoreResults = async () => {
-    if (!canLoadMore.value || isLoading.value) {
+    if (isLoading.value) {
+      console.log('Already loading, skipping...')
       return
     }
     
     isLoading.value = true
-    currentPage.value++
     
     try {
-      const nextPageResults = await ApiService.searchPoems(searchQuery.value, selectedPoets.value, {
-        page: currentPage.value,
+      // Convert poet IDs to poet names for API call
+      const selectedPoetNames = selectedPoets.value.map(poetId => {
+        const poet = availablePoets.value.find(p => p.id === poetId)
+        return poet ? poet.name : null
+      }).filter(name => name !== null)
+      
+      const nextApiPage = apiPageNumber.value + 1
+      console.log(`Loading API page ${nextApiPage}...`)
+      
+      const nextPageResults = await ApiService.searchPoems(searchQuery.value, selectedPoetNames, {
+        page: nextApiPage,
         limit: 50
       })
       
-      // Append new results to allResults
+      // Append new results
       allResults.value = [...allResults.value, ...nextPageResults.results]
       searchResults.value = allResults.value
+      apiPageNumber.value = nextApiPage
       
       // Update total results if provided
       if (nextPageResults.totalResults) {
@@ -120,7 +134,6 @@ export const useSearchStore = defineStore('search', () => {
       console.log('Load more results completed. Total results:', allResults.value.length)
     } catch (error) {
       console.error('Error loading more results:', error)
-      currentPage.value-- // Revert page increment on error
     } finally {
       isLoading.value = false
     }
@@ -147,8 +160,17 @@ export const useSearchStore = defineStore('search', () => {
   }
   
   const nextPage = () => {
-    if (currentPage.value < totalPages.value) {
+    // Navigate to next poem in loaded results
+    console.log('nextPage called:', {
+      currentPage: currentPage.value,
+      totalLoaded: searchResults.value.length,
+      canAdvance: currentPage.value < searchResults.value.length
+    })
+    if (currentPage.value < searchResults.value.length) {
       currentPage.value++
+      console.log('Advanced to page:', currentPage.value)
+    } else {
+      console.log('Cannot advance - already at end')
     }
   }
   
@@ -164,6 +186,7 @@ export const useSearchStore = defineStore('search', () => {
     totalPages.value = 0
     allResults.value = []
     searchResults.value = []
+    apiPageNumber.value = 1
   }
 
   const clearResults = () => {
@@ -184,6 +207,7 @@ export const useSearchStore = defineStore('search', () => {
     totalResults,
     totalPages,
     allResults,
+    apiPageNumber,
     
     // Getters
     hasResults,
@@ -198,6 +222,7 @@ export const useSearchStore = defineStore('search', () => {
     removePoetFilter,
     clearFilters,
     setSearchResults,
+    appendSearchResults,
     setTotalPages,
     setTotalResults,
     setAvailablePoets,

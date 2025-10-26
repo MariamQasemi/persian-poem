@@ -144,7 +144,6 @@ const showSidebar = ref(false)
 const poetSearchQuery = ref('')
 const sidebar = ref(null)
 const isSavingPoets = ref(false)
-const saveTimeout = ref(null)
 
 const selectedPoets = computed({
   get: () => searchStore.selectedPoets,
@@ -189,8 +188,8 @@ const selectPoet = async (poet) => {
     searchStore.addPoetFilter(poet.id)
   }
   
-  // Save to backend if user is authenticated (debounced - waits 1 minute)
-  saveDefaultPoets()
+  // Save to backend immediately if user is authenticated
+  await saveDefaultPoetsImmediate()
   
   // Auto-apply filter when poet is selected/deselected
   if (searchStore.searchQuery.trim()) {
@@ -252,24 +251,9 @@ const saveDefaultPoetsImmediate = async () => {
   }
 }
 
-// Debounced save function - saves after 1 minute of inactivity
+// Save function that can be called immediately
 const saveDefaultPoets = () => {
-  // Only save if user is authenticated
-  if (!authStore.isAuthenticated.value) {
-    return
-  }
-  
-  // Clear any existing timeout
-  if (saveTimeout.value) {
-    clearTimeout(saveTimeout.value)
-    console.log('⏱️ Debouncing save, waiting 1 minute...')
-  }
-  
-  // Set new timeout to save after 1 minute
-  saveTimeout.value = setTimeout(() => {
-    console.log('⏱️ 1 minute passed, now saving default poets...')
-    saveDefaultPoetsImmediate()
-  }, 60000) // 1 minute = 60000 milliseconds
+  saveDefaultPoetsImmediate()
 }
 
 const loadDefaultPoets = async () => {
@@ -333,15 +317,9 @@ const loadDefaultPoets = async () => {
 }
 
 const clearAllFilters = async () => {
-  // Clear any pending debounced save
-  if (saveTimeout.value) {
-    clearTimeout(saveTimeout.value)
-    saveTimeout.value = null
-  }
-  
   searchStore.clearFilters()
   
-  // Save immediately (not debounced) when clearing all filters
+  // Save immediately when clearing all filters
   await saveDefaultPoetsImmediate()
   
   // Auto-apply filter after clearing
@@ -432,22 +410,6 @@ const loadPoets = async () => {
 
 const handleAuthStateChanged = async (event) => {
   console.log('🔐 Auth state changed, reloading poets...')
-  
-  // If user logged out and there's a pending save, save it immediately
-  if (!event.detail.isAuthenticated && saveTimeout.value && authStore.isAuthenticated.value) {
-    console.log('🔐 User logging out, saving poets immediately before logout...')
-    clearTimeout(saveTimeout.value)
-    await saveDefaultPoetsImmediate()
-  }
-  
-  // Clear timeout if logging out
-  if (!event.detail.isAuthenticated) {
-    if (saveTimeout.value) {
-      clearTimeout(saveTimeout.value)
-      saveTimeout.value = null
-    }
-  }
-  
   await loadPoets()
 }
 
@@ -463,12 +425,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // Clear any pending save timeout
-  if (saveTimeout.value) {
-    clearTimeout(saveTimeout.value)
-    console.log('🧹 Cleaning up save timeout')
-  }
-  
   // Cleanup event listeners
   window.removeEventListener('toggleSidebar', toggleSidebar)
   window.removeEventListener('authStateChanged', handleAuthStateChanged)
