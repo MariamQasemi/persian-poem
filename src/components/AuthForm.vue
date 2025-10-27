@@ -313,18 +313,18 @@ const handleLogin = async () => {
       console.warn('⚠️ Missing token or user data in login response')
     }
     
-    // Redirect to profile page after successful login
-    console.log('🚀 Attempting redirect to profile...')
+    // Redirect to home page after successful login
+    console.log('🚀 Attempting redirect to home...')
     
     // Give auth state time to propagate
     await new Promise(resolve => setTimeout(resolve, 100))
     
     try {
       // Use window.location for more reliable redirect on server
-      window.location.href = '/poems/profile'
+      window.location.href = '/poems/'
     } catch (err) {
       console.warn('Direct redirect failed, trying router:', err)
-      router.push('/profile')
+      router.push('/')
     }
     
   } catch (error) {
@@ -362,8 +362,8 @@ const handleRegister = async () => {
     // Switch to login tab after successful registration (or redirect if auto-logged in)
     setTimeout(() => {
       if (result.token && result.user) {
-        // Auto-logged in, redirect to profile
-        router.push('/profile')
+        // Auto-logged in, redirect to home (search interface)
+        window.location.href = '/poems/'
       } else {
         // Not auto-logged in, switch to login tab
         activeTab.value = 'login'

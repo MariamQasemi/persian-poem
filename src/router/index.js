@@ -12,12 +12,14 @@ const routes = [
   {
     path: '/',
     name: 'Home',
-    component: HomePage
+    component: HomePage,
+    meta: { requiresAuth: true }
   },
   {
     path: '/blog',
     name: 'Blog',
-    component: BlogPage
+    component: BlogPage,
+    meta: { requiresAuth: true }
   },
   {
     path: '/login',
@@ -41,13 +43,15 @@ const routes = [
     path: '/poet/:id',
     name: 'PoetDetail',
     component: PoetDetailPage,
-    props: true
+    props: true,
+    meta: { requiresAuth: true }
   },
   {
     path: '/poem/:id',
     name: 'PoemDetail',
     component: PoemDetailPage,
-    props: true
+    props: true,
+    meta: { requiresAuth: true }
   }
 ]
 
@@ -92,8 +96,8 @@ router.beforeEach((to, from, next) => {
   
   // Check if route requires guest (not authenticated)
   if (to.meta.requiresGuest && isAuthenticated) {
-    console.log('🚫 Redirecting to profile - already authenticated')
-    next('/profile')
+    console.log('🚫 Redirecting to home - already authenticated')
+    next('/')
     return
   }
   

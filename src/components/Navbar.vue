@@ -12,9 +12,8 @@
             <path d="M3 6H21M3 12H21M3 18H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
-      <!-- Logo and Welcome Message -->
+      <!-- Logo and Navigation Links -->
       <div class="navbar-brand">
-        
         <div class="logo" @click="goToHome">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="logo-icon">
             <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -22,6 +21,12 @@
             <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <span class="logo-text">شعر یاب</span>
+        </div>
+        
+        <!-- Navigation Links (shown when authenticated) -->
+        <div v-if="isAuthenticated" class="navbar-links">
+          <router-link to="/blog" class="nav-link">بلاگ</router-link>
+          <router-link to="/profile" class="nav-link" v-if="route.name !== 'Profile'">پروفایل</router-link>
         </div>
       </div>
 
@@ -40,28 +45,10 @@
         
         <!-- Show authenticated user buttons when authenticated -->
         <template v-else>
-          <!-- Show blog button -->
-          <router-link to="/blog" class="auth-btn login-btn" style="min-width: 60px;">
-            بلاگ
-          </router-link>
-          
-          <!-- Show Profile button when not on profile page -->
-          <template v-if="route.name !== 'Profile'">
-            <router-link to="/profile" class="auth-btn profile-btn">
-              پروفایل
-            </router-link>
-            <!-- Debug button - remove in production -->
-            <button @click="forceRefresh" class="debug-btn" style="margin-right: 10px; padding: 5px; background: #f39c12; color: white; border: none; border-radius: 4px; font-size: 12px;">
-              🔄
-            </button>
-          </template>
-          
-          <!-- Show Logout button when on profile page -->
-          <template v-else>
-            <button @click="handleLogout" class="auth-btn logout-btn">
-              خروج
-            </button>
-          </template>
+          <!-- Show Logout button -->
+          <button @click="handleLogout" class="auth-btn logout-btn">
+            خروج
+          </button>
         </template>
       </div>
     </div>
@@ -159,9 +146,9 @@ const handleLogout = async () => {
     // Force another update
     authStateUpdate.value++
     
-    // Redirect to home page
-    console.log('🏠 Redirecting to home page after logout')
-    router.push('/')
+    // Redirect to login page
+    console.log('🔐 Redirecting to login page after logout')
+    window.location.href = '/poems/login'
     
     // Force a final update after navigation
     setTimeout(() => {
@@ -189,14 +176,8 @@ const handleLogout = async () => {
     // Force another update
     authStateUpdate.value++
     
-    // Redirect to home page
-    router.push('/')
-    
-    // Force a final update after navigation
-    setTimeout(() => {
-      authStateUpdate.value++
-      console.log('🔄 Final auth state update after client-side logout')
-    }, 200)
+    // Redirect to login page
+    window.location.href = '/poems/login'
     
     console.log('✅ Client-side logout completed')
   }
@@ -340,6 +321,37 @@ onUnmounted(() => {
   color: #702632;
 }
 
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-right: 30px;
+}
+
+.nav-link {
+  padding: 8px 16px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 1rem;
+  font-family: 'Vazirmatn', sans-serif;
+  font-weight: 500;
+  color: #CDC7C6;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.nav-link:hover {
+  color: #702632;
+  background: rgba(112, 38, 50, 0.1);
+  border-color: #702632;
+}
+
+.nav-link.router-link-active {
+  color: #702632;
+  background: rgba(112, 38, 50, 0.1);
+  border-color: #702632;
+}
+
 .welcome-message {
   display: flex;
   align-items: center;
@@ -398,14 +410,14 @@ onUnmounted(() => {
 }
 
 .profile-btn {
-  background: #27ae60;
-  color: white;
-  border: 1px solid #27ae60;
+  background: #CDC7C6;
+  color: #8b3a42;
+  border: 1px solid #CDC7C6;
 }
 
 .profile-btn:hover {
-  background: #229954;
-  border-color: #229954;
+  background: #b2aaa8;
+  border-color: #b2aaa8;
 }
 
 .logout-btn {
@@ -485,6 +497,10 @@ onUnmounted(() => {
     font-size: 0.8rem;
     min-width: 70px;
   }
+  
+  .navbar-links {
+    display: none; /* Hide nav links on mobile - access through other navigation */
+  }
 }
 
 /* Very small screens */
@@ -512,6 +528,7 @@ onUnmounted(() => {
     font-size: 0.75rem;
     min-width: 60px;
   }
+  
   .sidebar-toggle-btn {
     margin-right: 0px !important;
   }

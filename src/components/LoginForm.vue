@@ -136,18 +136,18 @@ const handleSubmit = async () => {
       authStore.login(result.user, result.token)
     }
     
-    // Redirect to profile page after successful login
-    console.log('🚀 Attempting redirect to profile...')
+    // Redirect to home page after successful login
+    console.log('🚀 Attempting redirect to home...')
     
     // Give auth state time to propagate
     await new Promise(resolve => setTimeout(resolve, 100))
     
     try {
       // Use window.location for more reliable redirect on server
-      window.location.href = '/poems/profile'
+      window.location.href = '/poems/'
     } catch (err) {
       console.warn('Direct redirect failed, trying router:', err)
-      router.push('/profile')
+      router.push('/')
     }
     
   } catch (error) {
