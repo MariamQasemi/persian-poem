@@ -543,7 +543,7 @@ onUnmounted(() => {
 /* Sidebar Content */
 .sidebar-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 20px;
 }
 
