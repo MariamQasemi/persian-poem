@@ -645,64 +645,30 @@ export class ApiService {
   }
 
   // Update user's default poets
-  static async updateDefaultPoets(defaultPoets) {
+  static async updateFavouritePoets(poetNames) {
     try {
       console.log('✏️ Updating user favourite poets...')
-      console.log('📝 Favourite poets:', defaultPoets)
+      console.log('📝 Favourite poets:', poetNames)
       
-      // Get current user data
-      const currentUser = await this.getCurrentUser()
-      console.log('👤 Current user data:', currentUser)
-      
-      // Prepare full user object with favourite_poets updated
-      const updateData = {
-        favourite_poets: defaultPoets
+      // Prepare payload for /api/favourite-poets endpoint
+      const payload = {
+        favourite_poets: poetNames
       }
       
-      // Include required fields if they exist
-      if (currentUser.email) {
-        updateData.email = currentUser.email
-      }
-      if (currentUser.full_name !== undefined) {
-        updateData.full_name = currentUser.full_name
-      }
-      if (currentUser.is_active !== undefined) {
-        updateData.is_active = currentUser.is_active
-      }
-      
-      console.log('📤 Sending update request with data:', updateData)
-      console.log('📤 Request URL:', `${API_BASE_URL}/auth/me`)
+      console.log('📤 Sending request to:', `${API_BASE_URL}/favourite-poets`)
       console.log('📤 Request method: PUT')
+      console.log('📤 Request payload:', JSON.stringify(payload, null, 2))
       
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      const response = await fetch(`${API_BASE_URL}/favourite-poets`, {
         method: 'PUT',
         headers: getDefaultHeaders(),
-        body: JSON.stringify(updateData)
+        body: JSON.stringify(payload)
       })
       
       console.log('📥 Response status:', response.status)
       
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error('❌ Error response:', errorText)
-        
-        // If PUT fails with 405, try POST as alternative
-        if (response.status === 405) {
-          console.log('⚠️ PUT method not allowed, trying POST...')
-          const postResponse = await fetch(`${API_BASE_URL}/auth/preferences`, {
-            method: 'POST',
-            headers: getDefaultHeaders(),
-            body: JSON.stringify({ favourite_poets: defaultPoets })
-          })
-          
-          if (postResponse.ok) {
-            const result = await postResponse.json()
-            console.log('✅ Favourite poets updated via POST:', result)
-            return result
-          }
-        }
-        
-        throw new Error(`Failed to update favourite poets: ${response.status}`)
+        await handleApiError(response, 'Update Favourite Poets')
       }
       
       const result = await response.json()
@@ -714,6 +680,12 @@ export class ApiService {
       console.error('❌ Failed to update favourite poets:', error)
       throw error
     }
+  }
+
+  // Deprecated: Keep old method for backwards compatibility
+  static async updateDefaultPoets(defaultPoets) {
+    console.log('⚠️ updateDefaultPoets is deprecated, use updateFavouritePoets instead')
+    return this.updateFavouritePoets(defaultPoets)
   }
 
   // Change user password

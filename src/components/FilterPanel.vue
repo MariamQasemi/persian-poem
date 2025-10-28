@@ -205,7 +205,7 @@ const saveDefaultPoetsImmediate = async () => {
   
   try {
     isSavingPoets.value = true
-    console.log('💾 Saving default poets to backend...')
+    console.log('💾 Saving favourite poets to backend...')
     
     // Convert poet IDs to poet names for saving
     const poetNames = searchStore.selectedPoets.map(poetId => {
@@ -216,13 +216,13 @@ const saveDefaultPoetsImmediate = async () => {
     console.log('💾 Saving poets:', poetNames)
     
     try {
-      // Try to save to backend
-      const updatedUser = await ApiService.updateDefaultPoets(poetNames)
+      // Use the new favourite-poets endpoint
+      const updatedUser = await ApiService.updateFavouritePoets(poetNames)
       
-      console.log('✅ Default poets saved successfully to backend')
+      console.log('✅ Favourite poets saved successfully:', updatedUser)
       
-      // Update auth store with updated user data
-      if (updatedUser && authStore.currentUser.value) {
+      // Update auth store with updated user data from response
+      if (updatedUser) {
         authStore.updateUser(updatedUser)
       }
       
@@ -244,7 +244,7 @@ const saveDefaultPoetsImmediate = async () => {
     }
     
   } catch (error) {
-    console.error('❌ Failed to save default poets:', error)
+    console.error('❌ Failed to save favourite poets:', error)
     // Don't show error to user as this is a background operation
   } finally {
     isSavingPoets.value = false
@@ -266,20 +266,17 @@ const loadDefaultPoets = async () => {
   try {
     console.log('👤 Loading user saved favourite poets...')
     
-    // Try to load from backend first
+    // Use favourite_poets from auth store (already fetched during login)
+    // Don't call /auth/me again!
+    const currentUser = authStore.currentUser.value
     let favouritePoets = null
-    try {
-      const currentUser = await ApiService.getCurrentUser()
-      
-      if (currentUser && currentUser.favourite_poets && Array.isArray(currentUser.favourite_poets) && currentUser.favourite_poets.length > 0) {
-        console.log('✅ Found saved favourite poets in backend:', currentUser.favourite_poets)
-        favouritePoets = currentUser.favourite_poets
-      }
-    } catch (backendError) {
-      console.warn('⚠️ Failed to load from backend, trying localStorage:', backendError)
+    
+    if (currentUser && currentUser.favourite_poets && Array.isArray(currentUser.favourite_poets) && currentUser.favourite_poets.length > 0) {
+      console.log('✅ Found saved favourite poets in auth store:', currentUser.favourite_poets)
+      favouritePoets = currentUser.favourite_poets
     }
     
-    // If backend doesn't have it, try localStorage
+    // If auth store doesn't have it, try localStorage
     if (!favouritePoets) {
       const userEmail = authStore.currentUser.value?.email
       if (userEmail) {

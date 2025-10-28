@@ -134,6 +134,21 @@ const handleSubmit = async () => {
     // Update auth store
     if (result.token && result.user) {
       authStore.login(result.user, result.token)
+      
+      // Call /auth/me once to get complete user info including favourite_poets
+      try {
+        console.log('📞 Calling /auth/me to fetch complete user info...')
+        const currentUserData = await ApiService.getCurrentUser()
+        console.log('✅ Fetched complete user data:', currentUserData)
+        
+        // Update auth store with fresh complete data
+        if (currentUserData) {
+          authStore.login(currentUserData, result.token)
+          console.log('✅ Auth store updated with complete user data including favourite_poets')
+        }
+      } catch (meError) {
+        console.warn('⚠️ Could not fetch complete user data, using login response data:', meError)
+      }
     }
     
     // Redirect to home page after successful login

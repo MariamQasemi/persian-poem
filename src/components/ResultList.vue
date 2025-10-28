@@ -139,6 +139,12 @@
                 class="page-input"
               />
               <span class="page-label">از {{ filteredResultsCount }}</span>
+              <span v-if="isLoadingMore" class="loading-indicator">
+                در حال بارگذاری نتایج بیشتر...
+              </span>
+              <span v-else-if="searchStore.totalResults > filteredResultsCount" class="results-info">
+                ({{ searchStore.totalResults - filteredResultsCount }} نتیجه‌ی بیشتر موجود است)
+              </span>
             </div>
             
             <button 
@@ -199,6 +205,9 @@ const coupletsPreview = computed(() => {
   return allCouplets.value.slice(0, 3)
 })
 
+// Loading state for fetching more results
+const isLoadingMore = ref(false)
+
 // Navigation methods for single poem display
 const nextPoem = async () => {
   const currentCount = filteredResultsCount.value
@@ -209,11 +218,14 @@ const nextPoem = async () => {
   if (currentPage >= currentCount - 10 && searchStore.totalResults > currentCount) {
     console.log('📥 Loading more results as user approaches end...')
     console.log('Current loaded:', currentCount, 'Total available:', searchStore.totalResults)
+    isLoadingMore.value = true
     try {
       await searchStore.loadMoreResults()
       console.log('Loaded more results, now have:', searchStore.searchResults.length)
     } catch (error) {
       console.error('Failed to load more results:', error)
+    } finally {
+      isLoadingMore.value = false
     }
   }
   
@@ -479,6 +491,21 @@ const viewFullPoem = () => {
   justify-content: center;
   gap: 12px;
   flex-wrap: nowrap;
+}
+
+.results-info {
+  color: #888;
+  font-size: 0.85rem;
+  direction: rtl;
+  white-space: nowrap;
+}
+
+.loading-indicator {
+  color: #702632;
+  font-size: 0.85rem;
+  direction: rtl;
+  white-space: nowrap;
+  font-weight: 500;
 }
 
 .page-label {
