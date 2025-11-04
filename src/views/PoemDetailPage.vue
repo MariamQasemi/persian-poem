@@ -29,7 +29,7 @@
       </div>
 
       <!-- Poem Content -->
-      <div class="poem-content">
+      <div class="poem-content" v-if="poem.couplets && poem.couplets.length > 0">
         <!-- Desktop: Two Column Layout -->
         <div class="desktop-layout">
           <div 
@@ -39,10 +39,18 @@
           >
             <div class="poetry-columns">
               <div class="poetry-column">
-                <div class="poetry-line">{{ couplet[0] }}</div>
+                <div 
+                  class="poetry-line"
+                  :class="{ highlighted: couplet[0] && searchQuery && couplet[0].includes(searchQuery) }"
+                  v-html="highlightSearchQuery(couplet[0] || '')"
+                ></div>
               </div>
               <div class="poetry-column">
-                <div class="poetry-line">{{ couplet[1] }}</div>
+                <div 
+                  class="poetry-line"
+                  :class="{ highlighted: couplet[1] && searchQuery && couplet[1].includes(searchQuery) }"
+                  v-html="highlightSearchQuery(couplet[1] || '')"
+                ></div>
               </div>
             </div>
           </div>
@@ -56,11 +64,24 @@
             class="couplet-row"
           >
             <div class="poetry-column">
-              <div class="poetry-line">{{ couplet[0] }}</div>
-              <div class="poetry-line">{{ couplet[1] }}</div>
+              <div 
+                class="poetry-line"
+                :class="{ highlighted: couplet[0] && searchQuery && couplet[0].includes(searchQuery) }"
+                v-html="highlightSearchQuery(couplet[0] || '')"
+              ></div>
+              <div 
+                class="poetry-line"
+                :class="{ highlighted: couplet[1] && searchQuery && couplet[1].includes(searchQuery) }"
+                v-html="highlightSearchQuery(couplet[1] || '')"
+              ></div>
             </div>
           </div>
         </div>
+      </div>
+      
+      <!-- No Content Message -->
+      <div v-else class="no-content-message">
+        <p>محتوای شعر در دسترس نیست.</p>
       </div>
 
       <!-- Action Buttons -->
@@ -83,15 +104,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiService } from '../services/api.js'
+import { useSearchStore } from '../stores/search.js'
 
 const route = useRoute()
 const router = useRouter()
+const searchStore = useSearchStore()
+
 const poem = ref(null)
 const loading = ref(false)
 const error = ref(null)
+
+// Get search query from store for highlighting
+const searchQuery = computed(() => searchStore.searchQuery)
 
 const loadPoem = async () => {
   const poemId = route.params.id
@@ -121,7 +148,10 @@ const goBack = () => {
 }
 
 const copyPoem = async () => {
-  if (!poem.value) return
+  if (!poem.value || !poem.value.couplets || poem.value.couplets.length === 0) {
+    alert('شعری برای کپی وجود ندارد')
+    return
+  }
 
   const poetryText = poem.value.couplets
     .map(couplet => `${couplet[0]}    ${couplet[1]}`)
@@ -137,7 +167,10 @@ const copyPoem = async () => {
 }
 
 const sharePoem = async () => {
-  if (!poem.value) return
+  if (!poem.value || !poem.value.couplets || poem.value.couplets.length === 0) {
+    alert('شعری برای اشتراک‌گذاری وجود ندارد')
+    return
+  }
 
   const poetryText = poem.value.couplets
     .map(couplet => `${couplet[0]}    ${couplet[1]}`)
@@ -157,6 +190,23 @@ const sharePoem = async () => {
   } else {
     copyPoem()
   }
+}
+
+// Function to highlight search query in poetry text
+const highlightSearchQuery = (text) => {
+  if (!searchQuery.value || !text) return text
+  
+  const query = searchQuery.value.trim()
+  if (!query) return text
+  
+  // Escape special regex characters in the search query
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  
+  // Create regex with global flag and case insensitive
+  const regex = new RegExp(`(${escapedQuery})`, 'gi')
+  
+  // Replace matches with bold tags
+  return text.replace(regex, '<strong>$1</strong>')
 }
 
 onMounted(() => {
@@ -271,6 +321,14 @@ onMounted(() => {
   margin-bottom: 40px;
 }
 
+.no-content-message {
+  text-align: center;
+  padding: 60px 20px;
+  color: #888;
+  font-size: 1.1rem;
+  font-family: 'Vazirmatn', sans-serif;
+}
+
 .couplet-row {
   margin-bottom: 15px;
   padding-bottom: 10px;
@@ -324,6 +382,23 @@ onMounted(() => {
 .poetry-line:hover {
   background: rgba(112, 38, 50, 0.1);
   border-radius: 4px;
+}
+
+.poetry-line.highlighted {
+  background: rgba(112, 38, 50, 0.2);
+  border: 1px solid #702632;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-weight: 400;
+  color: #CDC7C6;
+}
+
+.poetry-line strong {
+  font-weight: 700;
+  color: #702632;
+  background: rgba(112, 38, 50, 0.3);
+  padding: 2px 4px;
+  border-radius: 3px;
 }
 
 .action-buttons {

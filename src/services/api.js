@@ -138,14 +138,17 @@ export class ApiService {
       const data = await response.json()
       console.log('API Response data:', data)
       
-      // Check if API response has the expected structure
-      if (!data || !data.poems) {
+      // Check if API response has the expected structure (new format uses 'verses' instead of 'poems')
+      if (!data || (!data.verses && !data.poems)) {
         console.error('Invalid API response structure:', data)
         throw new Error('Invalid API response structure')
       }
       
-      if (data.poems.length === 0) {
-        console.log('API returned empty poems array')
+      // Handle new structure with 'verses' array
+      const verses = data.verses || data.poems || []
+      
+      if (verses.length === 0) {
+        console.log('API returned empty verses array')
         return {
           results: [],
           totalResults: 0,
@@ -161,39 +164,112 @@ export class ApiService {
         poetNameToId[poet.name] = poet.id
       })
       
-      // Transform the API response to match our expected format
-      const transformedResults = data.poems.map(poem => {
-        console.log('Raw poem text:', poem.text)
-        
-        // Couplets are separated by actual newline characters (\n)
-        // Within each couplet, hemistichs are separated by 4 spaces
-        const coupletsRaw = poem.text.split('\n').filter(line => line.trim() !== '')
-        console.log('Couplets raw after split:', coupletsRaw)
-        
-        // Create array of couplets, where each couplet is an array of [hemistich1, hemistich2]
-        const couplets = coupletsRaw.map(couplet => {
-          // Split each couplet by 4 spaces to get the two hemistichs
-          const hemistichs = couplet.split('    ').filter(h => h.trim() !== '')
-          console.log('Hemistichs for couplet:', hemistichs)
-          // Return as array of two hemistichs
-          return hemistichs.length === 2 ? hemistichs : [hemistichs[0] || '', '']
-        })
-        
-        console.log('Final couplets:', couplets)
-        
-        return {
-          id: poem.id,
-          poetId: poetNameToId[poem.poet] || poem.poet, // Map poet name to ID
-          poetName: poem.poet,
-          poemTitle: poem.title,
-          couplets: couplets, // Array of couplet pairs
-          matchedVerse: poem.text,
-          url: poem.url,
-          category: poem.category || 'عمومی'
+      // Transform verses array to match our expected format
+      const transformedResults = verses.map(verse => {
+        // Check if this is the new structure (has context_verses)
+        if (verse.context_verses && Array.isArray(verse.context_verses)) {
+          // New structure: build couplets from context_verses
+          // Sort context_verses by vorder to ensure correct order
+          const sortedVerses = [...verse.context_verses].sort((a, b) => a.vorder - b.vorder)
+          
+          // Find the matching verse (is_match: true)
+          const matchingVerse = sortedVerses.find(v => v.is_match === true)
+          let filteredVerses
+          if (!matchingVerse) {
+            console.warn('No matching verse found in context_verses')
+            // Fallback: use all verses
+            filteredVerses = sortedVerses
+          } else {
+            const matchingIndex = sortedVerses.indexOf(matchingVerse)
+            const matchingPosition = matchingVerse.position
+            
+            // Determine how many verses before and after based on position
+            let versesBefore, versesAfter
+            if (matchingPosition === 1) {
+              // Position 1: 3 verses before + 2 verses after
+              versesBefore = 3
+              versesAfter = 2
+            } else {
+              // Position 0: 2 verses before + 3 verses after
+              versesBefore = 2
+              versesAfter = 3
+            }
+            
+            // Calculate start and end indices
+            const startIndex = Math.max(0, matchingIndex - versesBefore)
+            const endIndex = Math.min(sortedVerses.length, matchingIndex + versesAfter + 1)
+            
+            // Filter verses based on position
+            filteredVerses = sortedVerses.slice(startIndex, endIndex)
+            
+            console.log(`Matching verse at index ${matchingIndex}, position ${matchingPosition}`)
+            console.log(`Showing ${startIndex} to ${endIndex} (${filteredVerses.length} verses)`)
+          }
+          
+          // Group filtered verses by couplet
+          const versesByCouplet = {}
+          filteredVerses.forEach(contextVerse => {
+            // Calculate couplet number: every two verses (vorder) form a couplet
+            // vorder starts from 1, so couplet number is floor((vorder - 1) / 2)
+            const coupletNumber = Math.floor((contextVerse.vorder - 1) / 2)
+            
+            if (!versesByCouplet[coupletNumber]) {
+              versesByCouplet[coupletNumber] = ['', '']
+            }
+            
+            // Set the text based on position (0 = first line, 1 = second line)
+            if (contextVerse.position === 0) {
+              versesByCouplet[coupletNumber][0] = contextVerse.text
+            } else if (contextVerse.position === 1) {
+              versesByCouplet[coupletNumber][1] = contextVerse.text
+            }
+          })
+          
+          // Convert to array and sort by couplet number
+          const couplets = Object.keys(versesByCouplet)
+            .sort((a, b) => parseInt(a) - parseInt(b))
+            .map(key => versesByCouplet[key])
+          
+          console.log('Transformed couplets from filtered context_verses:', couplets)
+          
+          return {
+            id: verse.poem_id, // Use poem_id for navigation
+            verseId: verse.id, // Keep original verse ID
+            poetId: poetNameToId[verse.poet] || verse.poet,
+            poetName: verse.poet,
+            poemTitle: verse.poem_title,
+            couplets: couplets,
+            matchedVerse: verse.text,
+            url: verse.url,
+            category: verse.category || 'عمومی',
+            vorder: verse.vorder,
+            position: verse.position
+          }
+        } else {
+          // Old structure: fallback for backwards compatibility
+          console.log('Using old structure fallback')
+          const coupletsRaw = (verse.text || '').split('\n').filter(line => line.trim() !== '')
+          
+          const couplets = coupletsRaw.map(couplet => {
+            const hemistichs = couplet.split('    ').filter(h => h.trim() !== '')
+            return hemistichs.length === 2 ? hemistichs : [hemistichs[0] || '', '']
+          })
+          
+          return {
+            id: verse.id || verse.poem_id,
+            verseId: verse.id,
+            poetId: poetNameToId[verse.poet] || verse.poet,
+            poetName: verse.poet,
+            poemTitle: verse.poem_title || verse.title,
+            couplets: couplets,
+            matchedVerse: verse.text,
+            url: verse.url,
+            category: verse.category || 'عمومی'
+          }
         }
       })
       
-      const totalResults = data.total || data.total_results || transformedResults.length
+      const totalResults = data.total_results || data.total || transformedResults.length
       const totalPages = Math.ceil(totalResults / limit)
       
       console.log('Transformed results:', transformedResults.length, 'results')
@@ -272,16 +348,22 @@ export class ApiService {
   static async getFullPoem(poemId) {
     try {
       console.log('API: Fetching full poem:', poemId)
-      const response = await fetch(`${API_BASE_URL}/poem/${poemId}`)
+      const response = await fetch(`${API_BASE_URL}/poem/${poemId}`, {
+        method: 'GET',
+        headers: getDefaultHeaders(),
+        redirect: 'follow',
+        mode: 'cors'
+      })
       
       console.log('API: Full poem response status:', response.status)
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        await handleApiError(response, 'Get Full Poem')
       }
       
       const poemData = await response.json()
       console.log('API: Received full poem data:', poemData)
       
+      // Ensure poemData has the required structure
       // Parse the full poem text into couplets
       if (poemData.text) {
         const coupletsRaw = poemData.text.split('\n').filter(line => line.trim() !== '')
@@ -292,7 +374,48 @@ export class ApiService {
         })
         
         poemData.couplets = couplets
+      } else if (poemData.verses && Array.isArray(poemData.verses)) {
+        // If API returns verses array instead of text, process them
+        console.log('API: Processing verses array instead of text')
+        const versesByCouplet = {}
+        
+        poemData.verses.forEach(verse => {
+          const coupletNumber = Math.floor((verse.vorder - 1) / 2)
+          
+          if (!versesByCouplet[coupletNumber]) {
+            versesByCouplet[coupletNumber] = ['', '']
+          }
+          
+          if (verse.position === 0) {
+            versesByCouplet[coupletNumber][0] = verse.text
+          } else if (verse.position === 1) {
+            versesByCouplet[coupletNumber][1] = verse.text
+          }
+        })
+        
+        const couplets = Object.keys(versesByCouplet)
+          .sort((a, b) => parseInt(a) - parseInt(b))
+          .map(key => versesByCouplet[key])
+        
+        poemData.couplets = couplets
+      } else {
+        // Ensure couplets array exists even if empty
+        console.warn('API: No text or verses found in poem data, creating empty couplets')
+        poemData.couplets = []
       }
+      
+      // Ensure required fields exist with defaults
+      if (!poemData.poet && poemData.poet_name) {
+        poemData.poet = poemData.poet_name
+      }
+      if (!poemData.title && poemData.poem_title) {
+        poemData.title = poemData.poem_title
+      }
+      if (!poemData.category) {
+        poemData.category = 'عمومی'
+      }
+      
+      console.log('API: Processed poem data with couplets:', poemData.couplets?.length || 0, 'couplets')
       
       return poemData
     } catch (error) {
@@ -842,6 +965,36 @@ export class ApiService {
       
     } catch (error) {
       console.error('❌ Failed to get my blog posts:', error)
+      throw error
+    }
+  }
+
+  // Get a single blog post by ID
+  static async getBlogPost(postId) {
+    try {
+      console.log('📝 Fetching blog post:', postId)
+      
+      const response = await fetch(`${API_BASE_URL}/blog/posts/${postId}`, {
+        method: 'GET',
+        headers: getDefaultHeaders()
+      })
+      
+      console.log('📥 Blog post response:', {
+        status: response.status,
+        ok: response.ok
+      })
+      
+      if (!response.ok) {
+        await handleApiError(response, 'Get Blog Post')
+      }
+      
+      const result = await response.json()
+      console.log('✅ Blog post fetched:', result)
+      
+      return result
+      
+    } catch (error) {
+      console.error('❌ Failed to get blog post:', error)
       throw error
     }
   }

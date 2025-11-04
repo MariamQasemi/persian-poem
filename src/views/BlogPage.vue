@@ -61,7 +61,17 @@
           </div>
           <div v-else class="posts-list">
             <article v-for="post in posts" :key="post.id" class="post-card">
-              <h2 class="post-title">{{ post.title }}</h2>
+              <div class="post-header">
+                <h2 class="post-title">{{ post.title }}</h2>
+                <button 
+                  v-if="authStore.isAuthenticated.value"
+                  @click="handleDeletePost(post.id)" 
+                  class="delete-btn"
+                  :disabled="isDeleting === post.id"
+                >
+                  {{ isDeleting === post.id ? 'در حال حذف...' : 'حذف' }}
+                </button>
+              </div>
               <div class="post-meta">
                 <span class="post-date">{{ formatDate(post.created_at) }}</span>
                 <span class="post-author">{{ post.author || post.author_name || 'نویسنده نامشخص' }}</span>
@@ -86,6 +96,7 @@ import { useAuthStore } from '../stores/auth.js'
 const posts = ref([])
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const isDeleting = ref(null)
 const submitError = ref('')
 const submitSuccess = ref('')
 
@@ -174,6 +185,26 @@ async function handleCreatePost() {
     submitError.value = e?.message || 'خطا در ایجاد پست'
   } finally {
     isSubmitting.value = false
+    setTimeout(() => { submitSuccess.value = '' }, 2000)
+  }
+}
+
+async function handleDeletePost(postId) {
+  if (!confirm('آیا مطمئن هستید که می‌خواهید این پست را حذف کنید؟')) {
+    return
+  }
+
+  try {
+    isDeleting.value = postId
+    await ApiService.deleteBlogPost(postId)
+    submitSuccess.value = 'پست با موفقیت حذف شد'
+    await loadPosts()
+  } catch (e) {
+    console.error('Delete post failed:', e)
+    submitError.value = e?.message || 'خطا در حذف پست'
+    setTimeout(() => { submitError.value = '' }, 3000)
+  } finally {
+    isDeleting.value = null
     setTimeout(() => { submitSuccess.value = '' }, 2000)
   }
 }
@@ -317,9 +348,40 @@ onMounted(async () => {
   padding: 16px;
 }
 
+.post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
 .post-title {
-  margin: 0 0 8px 0;
+  margin: 0;
   color: #fff;
+  flex: 1;
+}
+
+.delete-btn {
+  background: #e74c3c;
+  color: white;
+  border: 1px solid #e74c3c;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #c0392b;
+  border-color: #c0392b;
+}
+
+.delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .post-meta {
@@ -337,8 +399,7 @@ onMounted(async () => {
 
 .read-more {
   color: #702632;
-  text-decoration: none;
-  border: 1px solid #702632;
+  text-decoration: underline;
   padding: 6px 10px;
   border-radius: 6px;
 }
