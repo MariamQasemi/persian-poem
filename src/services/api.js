@@ -137,15 +137,37 @@ export class ApiService {
       
       const data = await response.json()
       console.log('API Response data:', data)
+      console.log('API Response keys:', Object.keys(data || {}))
       
       // Check if API response has the expected structure (new format uses 'verses' instead of 'poems')
-      if (!data || (!data.verses && !data.poems)) {
-        console.error('Invalid API response structure:', data)
-        throw new Error('Invalid API response structure')
+      // Also check for possible variations in response structure
+      let verses = null
+      
+      if (data && data.verses && Array.isArray(data.verses)) {
+        verses = data.verses
+      } else if (data && data.poems && Array.isArray(data.poems)) {
+        verses = data.poems
+      } else if (data && Array.isArray(data)) {
+        // API might return array directly
+        verses = data
+      } else if (data && data.results && Array.isArray(data.results)) {
+        verses = data.results
+      } else if (data && data.data && Array.isArray(data.data)) {
+        verses = data.data
       }
       
-      // Handle new structure with 'verses' array
-      const verses = data.verses || data.poems || []
+      if (!verses || !Array.isArray(verses)) {
+        console.error('Invalid API response structure:', {
+          data,
+          hasVerses: !!(data && data.verses),
+          hasPoems: !!(data && data.poems),
+          isArray: Array.isArray(data),
+          dataKeys: data ? Object.keys(data) : []
+        })
+        throw new Error('Invalid API response structure: Expected verses or poems array')
+      }
+      
+      console.log('Using verses array with', verses.length, 'items')
       
       if (verses.length === 0) {
         console.log('API returned empty verses array')
@@ -170,17 +192,17 @@ export class ApiService {
         if (verse.context_verses && Array.isArray(verse.context_verses)) {
           // New structure: build couplets from context_verses
           // Sort context_verses by vorder to ensure correct order
-          const sortedVerses = [...verse.context_verses].sort((a, b) => a.vorder - b.vorder)
+          const sortedContextVerses = [...verse.context_verses].sort((a, b) => a.vorder - b.vorder)
           
           // Find the matching verse (is_match: true)
-          const matchingVerse = sortedVerses.find(v => v.is_match === true)
+          const matchingVerse = sortedContextVerses.find(v => v.is_match === true)
           let filteredVerses
           if (!matchingVerse) {
             console.warn('No matching verse found in context_verses')
             // Fallback: use all verses
-            filteredVerses = sortedVerses
+            filteredVerses = sortedContextVerses
           } else {
-            const matchingIndex = sortedVerses.indexOf(matchingVerse)
+            const matchingIndex = sortedContextVerses.indexOf(matchingVerse)
             const matchingPosition = matchingVerse.position
             
             // Determine how many verses before and after based on position
@@ -189,46 +211,48 @@ export class ApiService {
               // Position 1: 3 verses before + 2 verses after
               versesBefore = 3
               versesAfter = 2
-            } else {
+            } else if (matchingPosition === 0) {
               // Position 0: 2 verses before + 3 verses after
               versesBefore = 2
               versesAfter = 3
+            } else {
+              // Position -1 (full-width): default to 2 before + 2 after (or adjust as needed)
+              versesBefore = 2
+              versesAfter = 2
             }
             
             // Calculate start and end indices
             const startIndex = Math.max(0, matchingIndex - versesBefore)
-            const endIndex = Math.min(sortedVerses.length, matchingIndex + versesAfter + 1)
+            const endIndex = Math.min(sortedContextVerses.length, matchingIndex + versesAfter + 1)
             
             // Filter verses based on position
-            filteredVerses = sortedVerses.slice(startIndex, endIndex)
+            filteredVerses = sortedContextVerses.slice(startIndex, endIndex)
             
             console.log(`Matching verse at index ${matchingIndex}, position ${matchingPosition}`)
             console.log(`Showing ${startIndex} to ${endIndex} (${filteredVerses.length} verses)`)
           }
           
-          // Group filtered verses by couplet
-          const versesByCouplet = {}
-          filteredVerses.forEach(contextVerse => {
-            // Calculate couplet number: every two verses (vorder) form a couplet
-            // vorder starts from 1, so couplet number is floor((vorder - 1) / 2)
-            const coupletNumber = Math.floor((contextVerse.vorder - 1) / 2)
-            
-            if (!versesByCouplet[coupletNumber]) {
-              versesByCouplet[coupletNumber] = ['', '']
-            }
-            
-            // Set the text based on position (0 = first line, 1 = second line)
-            if (contextVerse.position === 0) {
-              versesByCouplet[coupletNumber][0] = contextVerse.text
-            } else if (contextVerse.position === 1) {
-              versesByCouplet[coupletNumber][1] = contextVerse.text
-            }
-          })
+          // Group filtered verses by couplet, maintaining order based on vorder
+          // Sort verses by vorder to ensure correct order
+          const sortedVerses = [...filteredVerses].sort((a, b) => a.vorder - b.vorder)
           
-          // Convert to array and sort by couplet number
-          const couplets = Object.keys(versesByCouplet)
-            .sort((a, b) => parseInt(a) - parseInt(b))
-            .map(key => versesByCouplet[key])
+          // Build couplets array maintaining order
+          const couplets = []
+          
+          sortedVerses.forEach(verse => {
+            if (verse.position === -1) {
+              // Full-width line - add as separate entry
+              couplets.push({ fullWidth: true, text: verse.text, vorder: verse.vorder })
+            } else if (verse.position === 0) {
+              // Start of couplet - find matching position 1 verse (next vorder)
+              const matchingVerse1 = sortedVerses.find(v => 
+                v.position === 1 && 
+                v.vorder === verse.vorder + 1
+              )
+              couplets.push([verse.text, matchingVerse1 ? matchingVerse1.text : ''])
+            }
+            // Skip position 1 verses as they're handled with their position 0 partner
+          })
           
           console.log('Transformed couplets from filtered context_verses:', couplets)
           
@@ -269,7 +293,7 @@ export class ApiService {
         }
       })
       
-      const totalResults = data.total_results || data.total || transformedResults.length
+      const totalResults = data.total_results || data.total || data.totalResults || transformedResults.length
       const totalPages = Math.ceil(totalResults / limit)
       
       console.log('Transformed results:', transformedResults.length, 'results')
@@ -290,6 +314,13 @@ export class ApiService {
     } catch (error) {
       console.error('Search API error:', error)
       console.error('Error details:', error.message)
+      console.error('Error stack:', error.stack)
+      
+      // If it's a structure error, log the raw response for debugging
+      if (error.message && error.message.includes('Invalid API response structure')) {
+        console.error('This might be a response structure issue. Check the Network tab for the actual API response.')
+      }
+      
       throw error
     }
   }
@@ -377,25 +408,27 @@ export class ApiService {
       } else if (poemData.verses && Array.isArray(poemData.verses)) {
         // If API returns verses array instead of text, process them
         console.log('API: Processing verses array instead of text')
-        const versesByCouplet = {}
         
-        poemData.verses.forEach(verse => {
-          const coupletNumber = Math.floor((verse.vorder - 1) / 2)
-          
-          if (!versesByCouplet[coupletNumber]) {
-            versesByCouplet[coupletNumber] = ['', '']
+        // Sort verses by vorder to ensure correct order
+        const sortedVerses = [...poemData.verses].sort((a, b) => a.vorder - b.vorder)
+        
+        // Build couplets array maintaining order
+        const couplets = []
+        
+        sortedVerses.forEach(verse => {
+          if (verse.position === -1) {
+            // Full-width line - add as separate entry
+            couplets.push({ fullWidth: true, text: verse.text, vorder: verse.vorder })
+          } else if (verse.position === 0) {
+            // Start of couplet - find matching position 1 verse (next vorder)
+            const matchingVerse1 = sortedVerses.find(v => 
+              v.position === 1 && 
+              v.vorder === verse.vorder + 1
+            )
+            couplets.push([verse.text, matchingVerse1 ? matchingVerse1.text : ''])
           }
-          
-          if (verse.position === 0) {
-            versesByCouplet[coupletNumber][0] = verse.text
-          } else if (verse.position === 1) {
-            versesByCouplet[coupletNumber][1] = verse.text
-          }
+          // Skip position 1 verses as they're handled with their position 0 partner
         })
-        
-        const couplets = Object.keys(versesByCouplet)
-          .sort((a, b) => parseInt(a) - parseInt(b))
-          .map(key => versesByCouplet[key])
         
         poemData.couplets = couplets
       } else {

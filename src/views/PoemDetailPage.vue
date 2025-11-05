@@ -37,7 +37,16 @@
             :key="`couplet-${cIndex}`"
             class="couplet-row"
           >
-            <div class="poetry-columns">
+            <!-- Full-width line (position -1) -->
+            <div v-if="couplet.fullWidth" class="full-width-line">
+              <div 
+                class="poetry-line"
+                :class="{ highlighted: couplet.text && searchQuery && couplet.text.includes(searchQuery) }"
+                v-html="highlightSearchQuery(couplet.text || '')"
+              ></div>
+            </div>
+            <!-- Normal couplet (position 0 and 1) -->
+            <div v-else class="poetry-columns">
               <div class="poetry-column">
                 <div 
                   class="poetry-line"
@@ -63,7 +72,16 @@
             :key="`mobile-couplet-${cIndex}`"
             class="couplet-row"
           >
-            <div class="poetry-column">
+            <!-- Full-width line (position -1) -->
+            <div v-if="couplet.fullWidth" class="full-width-line">
+              <div 
+                class="poetry-line"
+                :class="{ highlighted: couplet.text && searchQuery && couplet.text.includes(searchQuery) }"
+                v-html="highlightSearchQuery(couplet.text || '')"
+              ></div>
+            </div>
+            <!-- Normal couplet (position 0 and 1) -->
+            <div v-else class="poetry-column">
               <div 
                 class="poetry-line"
                 :class="{ highlighted: couplet[0] && searchQuery && couplet[0].includes(searchQuery) }"
@@ -154,7 +172,13 @@ const copyPoem = async () => {
   }
 
   const poetryText = poem.value.couplets
-    .map(couplet => `${couplet[0]}    ${couplet[1]}`)
+    .map(couplet => {
+      if (couplet.fullWidth) {
+        return couplet.text
+      } else {
+        return `${couplet[0]}    ${couplet[1]}`
+      }
+    })
     .join('\n')
   const fullText = `${poem.value.poet}\n${poem.value.title}\n\n${poetryText}`
 
@@ -173,7 +197,13 @@ const sharePoem = async () => {
   }
 
   const poetryText = poem.value.couplets
-    .map(couplet => `${couplet[0]}    ${couplet[1]}`)
+    .map(couplet => {
+      if (couplet.fullWidth) {
+        return couplet.text
+      } else {
+        return `${couplet[0]}    ${couplet[1]}`
+      }
+    })
     .join('\n')
   const shareText = `${poem.value.poet}\n${poem.value.title}\n\n${poetryText}`
 
@@ -347,6 +377,18 @@ onMounted(() => {
   gap: 100px;
   direction: rtl;
   width: 100%;
+}
+
+.full-width-line {
+  width: 100%;
+  direction: rtl;
+  text-align: center;
+}
+
+.full-width-line .poetry-line {
+  text-align: center;
+  width: 100%;
+  max-width: 100%;
 }
 
 .desktop-layout {

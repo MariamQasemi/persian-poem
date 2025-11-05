@@ -66,7 +66,16 @@
               :key="`couplet-${cIndex}`"
               class="couplet-row"
             >
-              <div class="poetry-columns">
+              <!-- Full-width line (position -1) -->
+              <div v-if="couplet.fullWidth" class="full-width-line">
+                <div 
+                  class="poetry-line"
+                  :class="{ highlighted: couplet.text && couplet.text.includes(searchStore.searchQuery) }"
+                  v-html="highlightSearchQuery(couplet.text || '')"
+                ></div>
+              </div>
+              <!-- Normal couplet (position 0 and 1) -->
+              <div v-else class="poetry-columns">
                 <div class="poetry-column">
                   <div 
                     class="poetry-line"
@@ -92,7 +101,16 @@
               :key="`mobile-couplet-${cIndex}`"
               class="couplet-row"
             >
-              <div class="poetry-column">
+              <!-- Full-width line (position -1) -->
+              <div v-if="couplet.fullWidth" class="full-width-line">
+                <div 
+                  class="poetry-line"
+                  :class="{ highlighted: couplet.text && couplet.text.includes(searchStore.searchQuery) }"
+                  v-html="highlightSearchQuery(couplet.text || '')"
+                ></div>
+              </div>
+              <!-- Normal couplet (position 0 and 1) -->
+              <div v-else class="poetry-column">
                 <div 
                   class="poetry-line"
                   :class="{ highlighted: couplet[0] && couplet[0].includes(searchStore.searchQuery) }"
@@ -288,20 +306,33 @@ const retrySearch = async () => {
     }).filter(name => name !== null)
     
     // Use real API call
-    const results = await ApiService.searchPoems(searchStore.searchQuery, selectedPoetNames)
-    searchStore.setSearchResults(results)
+    const response = await ApiService.searchPoems(searchStore.searchQuery, selectedPoetNames, {
+      page: 1,
+      limit: 50
+    })
+    
+    // Set initial results (only first 50)
+    searchStore.setSearchResults(response.results)
+    searchStore.setTotalResults(response.totalResults || response.results.length)
     
   } catch (err) {
-    searchStore.setError(err.message)
+    console.error('Retry search error:', err)
+    searchStore.setError(err.message || 'خطا در جستجو. لطفاً دوباره تلاش کنید.')
   } finally {
     searchStore.setLoading(false)
   }
 }
 
 const copyPoetry = async (result) => {
-  // Convert couplets to text: join each couplet's hemistichs with spaces, then join couplets with newlines
+  // Convert couplets to text: handle both normal couplets and full-width lines
   const poetryText = result.couplets
-    .map(couplet => `${couplet[0]}    ${couplet[1]}`)
+    .map(couplet => {
+      if (couplet.fullWidth) {
+        return couplet.text
+      } else {
+        return `${couplet[0]}    ${couplet[1]}`
+      }
+    })
     .join('\n')
   const fullText = `${result.poetName}\n\n${poetryText}`
   
@@ -322,9 +353,15 @@ const copyPoetry = async (result) => {
 }
 
 const sharePoetry = async (result) => {
-  // Convert couplets to text: join each couplet's hemistichs with spaces, then join couplets with newlines
+  // Convert couplets to text: handle both normal couplets and full-width lines
   const poetryText = result.couplets
-    .map(couplet => `${couplet[0]}    ${couplet[1]}`)
+    .map(couplet => {
+      if (couplet.fullWidth) {
+        return couplet.text
+      } else {
+        return `${couplet[0]}    ${couplet[1]}`
+      }
+    })
     .join('\n')
   const shareText = `${result.poetName}\n\n${poetryText}`
   
@@ -611,6 +648,18 @@ const viewFullPoem = () => {
   gap: 100px;
   direction: rtl;
   width: 100%;
+}
+
+.full-width-line {
+  width: 100%;
+  direction: rtl;
+  text-align: center;
+}
+
+.full-width-line .poetry-line {
+  text-align: center;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Desktop/Tablet Layout */
