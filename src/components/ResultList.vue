@@ -260,12 +260,65 @@ const prevPoem = () => {
 }
 
 // Go to specific page
-const goToPage = () => {
+const goToPage = async () => {
   const page = parseInt(pageInput.value)
-  if (page >= 1 && page <= filteredResultsCount.value) {
+  const currentCount = filteredResultsCount.value
+  
+  // Validate page number
+  if (isNaN(page) || page < 1) {
+    pageInput.value = searchStore.currentPage
+    return
+  }
+  
+  // If page is at or beyond the boundary of currently loaded results, load more first
+  // This ensures the next button is enabled when navigating to pages near the end
+  if (page >= currentCount && searchStore.totalResults > currentCount) {
+    console.log(`📥 Loading more results to reach page ${page}...`)
+    console.log(`Current loaded: ${currentCount}, Requested page: ${page}, Total available: ${searchStore.totalResults}`)
+    
+    isLoadingMore.value = true
+    try {
+      // Keep loading more results until we have enough for the requested page + buffer
+      // The buffer ensures next button is enabled
+      const targetCount = Math.max(page + 1, currentCount + 50) // Load at least one more page
+      while (searchStore.searchResults.length < targetCount && searchStore.searchResults.length < searchStore.totalResults) {
+        const countBeforeLoad = searchStore.searchResults.length
+        await searchStore.loadMoreResults()
+        
+        // Check if we've made progress
+        if (searchStore.searchResults.length === countBeforeLoad) {
+          console.warn('No new results loaded, breaking loop')
+          break
+        }
+        
+        // If we now have enough results for the requested page, break
+        if (searchStore.searchResults.length >= page) {
+          break
+        }
+      }
+      
+      console.log(`Loaded results, now have: ${searchStore.searchResults.length} results`)
+    } catch (error) {
+      console.error('Failed to load more results:', error)
+      // Reset to current page if loading failed
+      pageInput.value = searchStore.currentPage
+      return
+    } finally {
+      isLoadingMore.value = false
+    }
+  }
+  
+  // Now check if the page is valid with updated results
+  const updatedCount = searchStore.searchResults.length
+  if (page >= 1 && page <= updatedCount) {
     searchStore.setCurrentPage(page)
+  } else if (page > updatedCount && page <= searchStore.totalResults) {
+    // Page is valid but we haven't loaded it yet - this shouldn't happen after loading above
+    console.log(`Page ${page} is valid but not yet loaded. Setting to last available.`)
+    searchStore.setCurrentPage(updatedCount)
+    pageInput.value = updatedCount
   } else {
-    // Reset to current page if invalid input
+    // Invalid page - reset to current page
     pageInput.value = searchStore.currentPage
   }
 }
