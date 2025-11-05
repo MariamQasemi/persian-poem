@@ -194,6 +194,9 @@ export class ApiService {
           // Sort context_verses by vorder to ensure correct order
           const sortedContextVerses = [...verse.context_verses].sort((a, b) => a.vorder - b.vorder)
           
+          // Check if this is neo-poem (no position field) or classic-poem (has position field)
+          const isNeoPoem = !sortedContextVerses.some(v => v.position !== undefined && v.position !== null)
+          
           // Find the matching verse (is_match: true)
           const matchingVerse = sortedContextVerses.find(v => v.is_match === true)
           let filteredVerses
@@ -207,7 +210,12 @@ export class ApiService {
             
             // Determine how many verses before and after based on position
             let versesBefore, versesAfter
-            if (matchingPosition === 1) {
+            // For neo-poem, always show 3 verses before + 2 after (or adjust as needed)
+            if (isNeoPoem || matchingPosition === undefined || matchingPosition === null) {
+              // Neo-poem: show 3 verses before + 2 after
+              versesBefore = 3
+              versesAfter = 2
+            } else if (matchingPosition === 1) {
               // Position 1: 3 verses before + 2 verses after
               versesBefore = 3
               versesAfter = 2
@@ -216,7 +224,7 @@ export class ApiService {
               versesBefore = 2
               versesAfter = 3
             } else {
-              // Position -1 (full-width): default to 2 before + 2 after (or adjust as needed)
+              // Position -1 (full-width): default to 2 before + 2 after
               versesBefore = 2
               versesAfter = 2
             }
@@ -236,15 +244,18 @@ export class ApiService {
           // Sort verses by vorder to ensure correct order
           const sortedVerses = [...filteredVerses].sort((a, b) => a.vorder - b.vorder)
           
-          // Build couplets array maintaining order
+          // Build couplets array maintaining order (for preview)
           const couplets = []
           
           sortedVerses.forEach(verse => {
-            if (verse.position === -1) {
-              // Full-width line - add as separate entry
+            // Neo-poem: no position field - each verse is a full-width line
+            if (verse.position === undefined || verse.position === null) {
+              couplets.push({ fullWidth: true, text: verse.text, vorder: verse.vorder })
+            } else if (verse.position === -1) {
+              // Classic-poem: Full-width line - add as separate entry
               couplets.push({ fullWidth: true, text: verse.text, vorder: verse.vorder })
             } else if (verse.position === 0) {
-              // Start of couplet - find matching position 1 verse (next vorder)
+              // Classic-poem: Start of couplet - find matching position 1 verse (next vorder)
               const matchingVerse1 = sortedVerses.find(v => 
                 v.position === 1 && 
                 v.vorder === verse.vorder + 1
@@ -254,7 +265,36 @@ export class ApiService {
             // Skip position 1 verses as they're handled with their position 0 partner
           })
           
-          console.log('Transformed couplets from filtered context_verses:', couplets)
+          // Always limit preview to exactly 3 display lines
+          const previewCouplets = couplets.slice(0, 3)
+          
+          // Count total display lines from ALL context_verses (full poem) to determine if button should show
+          const allContextVersesSorted = [...sortedContextVerses].sort((a, b) => a.vorder - b.vorder)
+          const allCouplets = []
+          
+          allContextVersesSorted.forEach(verse => {
+            // Neo-poem: no position field - each verse is a full-width line
+            if (verse.position === undefined || verse.position === null) {
+              allCouplets.push({ fullWidth: true, text: verse.text })
+            } else if (verse.position === -1) {
+              // Classic-poem: Full-width line counts as 1 display line
+              allCouplets.push({ fullWidth: true, text: verse.text })
+            } else if (verse.position === 0) {
+              // Classic-poem: Couplet (position 0 + 1) counts as 1 display line
+              const matchingVerse1 = allContextVersesSorted.find(v => 
+                v.position === 1 && 
+                v.vorder === verse.vorder + 1
+              )
+              allCouplets.push([verse.text, matchingVerse1 ? matchingVerse1.text : ''])
+            }
+          })
+          
+          const totalDisplayLines = allCouplets.length
+          const hasMoreThan3Lines = totalDisplayLines > 3
+          
+          console.log('Preview couplets (showing):', previewCouplets.length)
+          console.log('Total display lines in full poem:', totalDisplayLines)
+          console.log('Show full poem button:', hasMoreThan3Lines)
           
           return {
             id: verse.poem_id, // Use poem_id for navigation
@@ -262,12 +302,13 @@ export class ApiService {
             poetId: poetNameToId[verse.poet] || verse.poet,
             poetName: verse.poet,
             poemTitle: verse.poem_title,
-            couplets: couplets,
+            couplets: previewCouplets, // Always show exactly 3 lines
             matchedVerse: verse.text,
             url: verse.url,
             category: verse.category || 'عمومی',
             vorder: verse.vorder,
-            position: verse.position
+            position: verse.position,
+            hasMoreThan3Lines: hasMoreThan3Lines // Flag based on full poem length
           }
         } else {
           // Old structure: fallback for backwards compatibility
@@ -279,16 +320,23 @@ export class ApiService {
             return hemistichs.length === 2 ? hemistichs : [hemistichs[0] || '', '']
           })
           
+          // Always limit preview to exactly 3 lines
+          const previewCouplets = couplets.slice(0, 3)
+          
+          // Check if full poem has more than 3 lines
+          const hasMoreThan3Lines = couplets.length > 3
+          
           return {
             id: verse.id || verse.poem_id,
             verseId: verse.id,
             poetId: poetNameToId[verse.poet] || verse.poet,
             poetName: verse.poet,
             poemTitle: verse.poem_title || verse.title,
-            couplets: couplets,
+            couplets: previewCouplets, // Always show exactly 3 lines
             matchedVerse: verse.text,
             url: verse.url,
-            category: verse.category || 'عمومی'
+            category: verse.category || 'عمومی',
+            hasMoreThan3Lines: hasMoreThan3Lines
           }
         }
       })
@@ -412,15 +460,21 @@ export class ApiService {
         // Sort verses by vorder to ensure correct order
         const sortedVerses = [...poemData.verses].sort((a, b) => a.vorder - b.vorder)
         
+        // Check if this is neo-poem (no position field) or classic-poem (has position field)
+        const isNeoPoem = !sortedVerses.some(v => v.position !== undefined && v.position !== null)
+        
         // Build couplets array maintaining order
         const couplets = []
         
         sortedVerses.forEach(verse => {
-          if (verse.position === -1) {
-            // Full-width line - add as separate entry
+          // Neo-poem: no position field - each verse is a full-width line
+          if (verse.position === undefined || verse.position === null) {
+            couplets.push({ fullWidth: true, text: verse.text, vorder: verse.vorder })
+          } else if (verse.position === -1) {
+            // Classic-poem: Full-width line - add as separate entry
             couplets.push({ fullWidth: true, text: verse.text, vorder: verse.vorder })
           } else if (verse.position === 0) {
-            // Start of couplet - find matching position 1 verse (next vorder)
+            // Classic-poem: Start of couplet - find matching position 1 verse (next vorder)
             const matchingVerse1 = sortedVerses.find(v => 
               v.position === 1 && 
               v.vorder === verse.vorder + 1
