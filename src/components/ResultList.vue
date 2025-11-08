@@ -272,17 +272,17 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSearchStore } from '../stores/search'
 import { useAuthStore } from '../stores/auth.js'
 import { ApiService } from '../services/api.js'
+import { LikedVersesManager } from '../utils/likedVersesManager.js'
 
 const router = useRouter()
 const searchStore = useSearchStore()
 const authStore = useAuthStore()
 const pageInput = ref(searchStore.currentPage)
-const likedVerses = ref(new Set()) // Track liked verses
 
 // Helper function to get couplet text (handles both old array format and new object format)
 const getCoupletText = (couplet, index) => {
@@ -314,24 +314,24 @@ const getCoupletVerseId = (couplet, index) => {
 
 // Check if verse is liked
 const isVerseLiked = (verseId) => {
-  return verseId && likedVerses.value.has(verseId)
+  return LikedVersesManager.isVerseLiked(verseId)
 }
 
 // Toggle like for a verse
 const toggleLikeVerse = async (verseId) => {
   if (!verseId || !authStore.isAuthenticated.value) return
   
-  const isLiked = likedVerses.value.has(verseId)
+  const isLiked = LikedVersesManager.isVerseLiked(verseId)
   
   try {
     if (isLiked) {
       // Unlike: use DELETE method
       await ApiService.unlikeVerse(verseId)
-      likedVerses.value.delete(verseId)
+      LikedVersesManager.removeLikedVerse(verseId)
     } else {
       // Like: use POST method
       await ApiService.likeVerse(verseId)
-      likedVerses.value.add(verseId)
+      LikedVersesManager.addLikedVerse(verseId)
     }
   } catch (err) {
     console.error('Error toggling like:', err)
@@ -372,29 +372,14 @@ const coupletsPreview = computed(() => {
 })
 
 // Initialize liked verses from current poem data
+// This syncs API data with localStorage
 const initializeLikedVerses = () => {
   if (!currentPoem.value || !currentPoem.value.couplets) {
     return
   }
   
-  likedVerses.value.clear()
-  currentPoem.value.couplets.forEach(couplet => {
-    if (couplet.fullWidth && couplet.verseId) {
-      // Check if verse is liked from API data
-      if (couplet.isLiked) {
-        likedVerses.value.add(couplet.verseId)
-      }
-    } else if (couplet.verseIds && Array.isArray(couplet.verseIds)) {
-      // Check liked status for couplet verses
-      if (couplet.verseLiked && Array.isArray(couplet.verseLiked)) {
-        couplet.verseIds.forEach((verseId, index) => {
-          if (verseId && couplet.verseLiked[index]) {
-            likedVerses.value.add(verseId)
-          }
-        })
-      }
-    }
-  })
+  // Sync liked verses from API response with localStorage
+  LikedVersesManager.syncFromPoemData(currentPoem.value)
 }
 
 // Loading state for fetching more results
@@ -632,6 +617,12 @@ const viewFullPoem = () => {
     params: { id: currentPoem.value.id }
   })
 }
+
+// Load liked verses from localStorage on component mount
+onMounted(() => {
+  const likedVerses = LikedVersesManager.getLikedVerses()
+  console.log('📖 Loaded liked verses from localStorage:', likedVerses.size, 'verses')
+})
 </script>
 
 <style scoped>

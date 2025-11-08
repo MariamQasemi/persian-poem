@@ -103,7 +103,20 @@
                 <span class="poem-category">{{ poem.category || 'عمومی' }}</span>
                 <span v-if="poem.title" class="poem-title-text">{{ poem.title }}</span>
               </div>
-              <p v-if="poem.excerpt" class="poem-excerpt">{{ poem.excerpt }}</p>
+              <!-- Liked Verses Display -->
+              <div v-if="getLikedVerses(poem).length > 0" class="liked-verses-section">
+                <h4 class="liked-verses-title">بیت‌های لایک شده:</h4>
+                <div class="liked-verses-list">
+                  <div 
+                    v-for="(verse, index) in getLikedVerses(poem)" 
+                    :key="index" 
+                    class="liked-verse-item"
+                  >
+                    {{ verse }}
+                  </div>
+                </div>
+              </div>
+              <p v-if="poem.excerpt && !getLikedVerses(poem).length" class="poem-excerpt">{{ poem.excerpt }}</p>
             </article>
           </div>
           
@@ -123,6 +136,7 @@ import { ref, onMounted, computed } from 'vue'
 import Navbar from '../components/Navbar.vue'
 import { ApiService } from '../services/api.js'
 import { useAuthStore } from '../stores/auth.js'
+import { LikedVersesManager } from '../utils/likedVersesManager.js'
 
 const posts = ref([])
 const likedPoems = ref([])
@@ -156,6 +170,67 @@ const formatDate = (iso) => {
   }
 }
 
+// Helper function to extract liked verses from poem data
+// This function checks both API response and localStorage
+const getLikedVerses = (poem) => {
+  if (!poem) return []
+  
+  const likedVerses = []
+  const likedVerseIds = LikedVersesManager.getLikedVerses()
+  
+  // Check if poem has liked_verses field (array of verse texts)
+  if (poem.liked_verses && Array.isArray(poem.liked_verses)) {
+    return poem.liked_verses
+  }
+  
+  // Check if poem has liked_verse_texts field
+  if (poem.liked_verse_texts && Array.isArray(poem.liked_verse_texts)) {
+    return poem.liked_verse_texts
+  }
+  
+  // Check if poem has verses array with liked status
+  if (poem.verses && Array.isArray(poem.verses)) {
+    return poem.verses
+      .filter(v => {
+        const verseId = v.id || v.verse_id
+        return (v.is_liked || v.liked) || (verseId && likedVerseIds.has(String(verseId)))
+      })
+      .map(v => v.text || v.verse_text || v)
+  }
+  
+  // Check if poem has couplets with liked verses
+  if (poem.couplets && Array.isArray(poem.couplets)) {
+    poem.couplets.forEach(couplet => {
+      if (couplet.fullWidth && couplet.verseId) {
+        // Check both API data and localStorage
+        if (couplet.isLiked || likedVerseIds.has(String(couplet.verseId))) {
+          if (couplet.text) {
+            likedVerses.push(couplet.text)
+          }
+        }
+      } else if (couplet.verseIds && Array.isArray(couplet.verseIds)) {
+        if (couplet.text && Array.isArray(couplet.text)) {
+          couplet.verseIds.forEach((verseId, index) => {
+            if (verseId) {
+              // Check both API data and localStorage
+              const isLikedInApi = couplet.verseLiked && Array.isArray(couplet.verseLiked) && couplet.verseLiked[index]
+              const isLikedInStorage = likedVerseIds.has(String(verseId))
+              if (isLikedInApi || isLikedInStorage) {
+                if (couplet.text[index]) {
+                  likedVerses.push(couplet.text[index])
+                }
+              }
+            }
+          })
+        }
+      }
+    })
+    return likedVerses
+  }
+  
+  return []
+}
+
 async function loadPosts() {
   try {
     isLoading.value = true
@@ -180,14 +255,23 @@ async function loadLikedPoems(reset = false) {
     const offset = reset ? 0 : likedPoemsOffset.value
     const result = await ApiService.getLikedPoems({ limit: 20, offset })
     
+    let poems = result.poems || result || []
+    
+    // Sync liked verses from API response with localStorage
+    poems.forEach(poem => {
+      if (poem.couplets) {
+        LikedVersesManager.syncFromPoemData(poem)
+      }
+    })
+    
     if (reset) {
-      likedPoems.value = result.poems || result || []
+      likedPoems.value = poems
     } else {
-      likedPoems.value = [...likedPoems.value, ...(result.poems || result || [])]
+      likedPoems.value = [...likedPoems.value, ...poems]
     }
     
-    likedPoemsOffset.value = offset + (result.poems?.length || result?.length || 0)
-    hasMoreLikedPoems.value = (result.poems?.length || result?.length || 0) === 20
+    likedPoemsOffset.value = offset + poems.length
+    hasMoreLikedPoems.value = poems.length === 20
   } catch (e) {
     console.error('Failed to load liked poems', e)
     if (reset) {
@@ -278,6 +362,10 @@ async function handleDeletePost(postId) {
 }
 
 onMounted(async () => {
+  // Load liked verses from localStorage on mount
+  const likedVerses = LikedVersesManager.getLikedVerses()
+  console.log('📖 BlogPage: Loaded liked verses from localStorage:', likedVerses.size, 'verses')
+  
   await loadPosts()
   await loadLikedPoems(true)
 })
@@ -563,6 +651,49 @@ onMounted(async () => {
   margin: 0;
   color: #ddd;
   line-height: 1.6;
+}
+
+.liked-verses-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(112, 38, 50, 0.3);
+}
+
+.liked-verses-title {
+  margin: 0 0 8px 0;
+  color: #702632;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.liked-verses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.liked-verse-item {
+  padding: 10px 12px;
+  background: rgba(112, 38, 50, 0.15);
+  border-right: 3px solid #702632;
+  border-radius: 4px;
+  color: #CDC7C6;
+  line-height: 1.8;
+  font-size: 0.95rem;
+  direction: rtl;
+  text-align: right;
+  position: relative;
+  padding-right: 35px;
+}
+
+.liked-verse-item::before {
+  content: '❤️';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.85rem;
+  opacity: 0.7;
 }
 
 .load-more-container {

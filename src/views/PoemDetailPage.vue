@@ -42,7 +42,10 @@
               <div class="poetry-line-wrapper">
                 <div 
                   class="poetry-line"
-                  :class="{ highlighted: couplet.text && searchQuery && couplet.text.includes(searchQuery) }"
+                  :class="{ 
+                    highlighted: couplet.text && searchQuery && couplet.text.includes(searchQuery),
+                    'liked-verse': isVerseLiked(couplet.verseId)
+                  }"
                   v-html="highlightSearchQuery(couplet.text || '')"
                 ></div>
                 <button 
@@ -64,7 +67,10 @@
                 <div class="poetry-line-wrapper">
                   <div 
                     class="poetry-line"
-                    :class="{ highlighted: getCoupletText(couplet, 0) && searchQuery && getCoupletText(couplet, 0).includes(searchQuery) }"
+                    :class="{ 
+                      highlighted: getCoupletText(couplet, 0) && searchQuery && getCoupletText(couplet, 0).includes(searchQuery),
+                      'liked-verse': isVerseLiked(getCoupletVerseId(couplet, 0))
+                    }"
                     v-html="highlightSearchQuery(getCoupletText(couplet, 0) || '')"
                   ></div>
                   <button 
@@ -84,7 +90,10 @@
                 <div class="poetry-line-wrapper">
                   <div 
                     class="poetry-line"
-                    :class="{ highlighted: getCoupletText(couplet, 1) && searchQuery && getCoupletText(couplet, 1).includes(searchQuery) }"
+                    :class="{ 
+                      highlighted: getCoupletText(couplet, 1) && searchQuery && getCoupletText(couplet, 1).includes(searchQuery),
+                      'liked-verse': isVerseLiked(getCoupletVerseId(couplet, 1))
+                    }"
                     v-html="highlightSearchQuery(getCoupletText(couplet, 1) || '')"
                   ></div>
                   <button 
@@ -116,7 +125,10 @@
               <div class="poetry-line-wrapper">
                 <div 
                   class="poetry-line"
-                  :class="{ highlighted: couplet.text && searchQuery && couplet.text.includes(searchQuery) }"
+                  :class="{ 
+                    highlighted: couplet.text && searchQuery && couplet.text.includes(searchQuery),
+                    'liked-verse': isVerseLiked(couplet.verseId)
+                  }"
                   v-html="highlightSearchQuery(couplet.text || '')"
                 ></div>
                 <button 
@@ -205,6 +217,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ApiService } from '../services/api.js'
 import { useSearchStore } from '../stores/search.js'
 import { useAuthStore } from '../stores/auth.js'
+import { LikedVersesManager } from '../utils/likedVersesManager.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -214,7 +227,6 @@ const authStore = useAuthStore()
 const poem = ref(null)
 const loading = ref(false)
 const error = ref(null)
-const likedVerses = ref(new Set()) // Track liked verses
 
 // Get search query from store for highlighting
 const searchQuery = computed(() => searchStore.searchQuery)
@@ -249,24 +261,24 @@ const getCoupletVerseId = (couplet, index) => {
 
 // Check if verse is liked
 const isVerseLiked = (verseId) => {
-  return verseId && likedVerses.value.has(verseId)
+  return LikedVersesManager.isVerseLiked(verseId)
 }
 
 // Toggle like for a verse
 const toggleLikeVerse = async (verseId) => {
   if (!verseId || !authStore.isAuthenticated.value) return
   
-  const isLiked = likedVerses.value.has(verseId)
+  const isLiked = LikedVersesManager.isVerseLiked(verseId)
   
   try {
     if (isLiked) {
       // Unlike: use DELETE method
       await ApiService.unlikeVerse(verseId)
-      likedVerses.value.delete(verseId)
+      LikedVersesManager.removeLikedVerse(verseId)
     } else {
       // Like: use POST method
       await ApiService.likeVerse(verseId)
-      likedVerses.value.add(verseId)
+      LikedVersesManager.addLikedVerse(verseId)
     }
   } catch (err) {
     console.error('Error toggling like:', err)
@@ -290,27 +302,11 @@ const loadPoem = async () => {
     console.log('Loaded poem:', poemData)
     poem.value = poemData
     
-    // Initialize liked verses from poem data
+    // Sync liked verses from API response with localStorage
     if (poemData.couplets) {
-      likedVerses.value.clear()
-      poemData.couplets.forEach(couplet => {
-        if (couplet.fullWidth && couplet.verseId) {
-          // Check if verse is liked from API data
-          if (couplet.isLiked) {
-            likedVerses.value.add(couplet.verseId)
-          }
-        } else if (couplet.verseIds && Array.isArray(couplet.verseIds)) {
-          // Check liked status for couplet verses
-          if (couplet.verseLiked && Array.isArray(couplet.verseLiked)) {
-            couplet.verseIds.forEach((verseId, index) => {
-              if (verseId && couplet.verseLiked[index]) {
-                likedVerses.value.add(verseId)
-              }
-            })
-          }
-        }
-      })
-      console.log('Initialized liked verses:', Array.from(likedVerses.value))
+      LikedVersesManager.syncFromPoemData(poemData)
+      const likedVerses = LikedVersesManager.getLikedVerses()
+      console.log('Initialized liked verses from API and localStorage:', Array.from(likedVerses))
     }
   } catch (err) {
     console.error('Error loading poem:', err)
@@ -603,6 +599,24 @@ onMounted(() => {
   padding: 8px 10px;
   font-weight: 400;
   color: #CDC7C6;
+}
+
+.poetry-line.liked-verse {
+  background: rgba(112, 38, 50, 0.15);
+  border-left: 3px solid #702632;
+  border-radius: 4px;
+  padding-left: 12px;
+  position: relative;
+}
+
+.poetry-line.liked-verse::before {
+  content: '❤️';
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  opacity: 0.7;
 }
 
 .poetry-line strong {
