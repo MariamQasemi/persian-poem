@@ -307,27 +307,56 @@ const removeLikedPoem = async (poem) => {
     // Get all liked verse IDs from this poem
     const likedVerseIds = getLikedVerseIds(poem)
     
+    if (likedVerseIds.length === 0) {
+      // No liked verses, just remove from list
+      likedPoems.value = likedPoems.value.filter(p => (p.poem_id || p.id) !== poemId)
+      isRemovingPoem.value = null
+      return
+    }
+    
     console.log('🗑️ Removing poem with', likedVerseIds.length, 'liked verses')
     
-    // Unlike each verse via API
-    const unlikePromises = likedVerseIds.map(verseId => 
-      ApiService.unlikeVerse(verseId).catch(err => {
-        console.error(`Failed to unlike verse ${verseId}:`, err)
-        // Continue even if one fails
-      })
+    // Unlike each verse via API and track success
+    const unlikeResults = await Promise.allSettled(
+      likedVerseIds.map(verseId => ApiService.unlikeVerse(verseId))
     )
     
-    await Promise.all(unlikePromises)
+    // Check which operations succeeded
+    const successfulUnlikes = []
+    const failedUnlikes = []
     
-    // Remove verse IDs from localStorage
-    likedVerseIds.forEach(verseId => {
+    unlikeResults.forEach((result, index) => {
+      const verseId = likedVerseIds[index]
+      if (result.status === 'fulfilled') {
+        successfulUnlikes.push(verseId)
+      } else {
+        failedUnlikes.push({ verseId, error: result.reason })
+        console.error(`Failed to unlike verse ${verseId}:`, result.reason)
+      }
+    })
+    
+    // Only remove successfully unliked verses from localStorage
+    successfulUnlikes.forEach(verseId => {
       LikedVersesManager.removeLikedVerse(verseId)
     })
     
-    // Remove poem from the list
-    likedPoems.value = likedPoems.value.filter(p => (p.poem_id || p.id) !== poemId)
-    
-    console.log('✅ Poem removed successfully')
+    // If all unlike operations succeeded, remove poem from list
+    if (failedUnlikes.length === 0) {
+      // Remove poem from the list
+      likedPoems.value = likedPoems.value.filter(p => (p.poem_id || p.id) !== poemId)
+      console.log('✅ Poem removed successfully - all verses unliked')
+    } else {
+      // Some operations failed - show error but still remove from list if most succeeded
+      console.warn(`⚠️ Some unlike operations failed: ${failedUnlikes.length} out of ${likedVerseIds.length}`)
+      
+      // If at least half succeeded, remove from list (user can manually unlike remaining)
+      if (successfulUnlikes.length >= likedVerseIds.length / 2) {
+        likedPoems.value = likedPoems.value.filter(p => (p.poem_id || p.id) !== poemId)
+        console.log('✅ Poem removed from list (some verses may still be liked on server)')
+      } else {
+        alert(`خطا در حذف برخی بیت‌ها. ${failedUnlikes.length} بیت حذف نشد. لطفاً دوباره تلاش کنید.`)
+      }
+    }
   } catch (err) {
     console.error('Error removing poem:', err)
     alert('خطا در حذف شعر. لطفاً دوباره تلاش کنید.')
@@ -369,10 +398,20 @@ async function loadLikedPoems(reset = false) {
       }
     })
     
+    // Filter out poems that have no liked verses (shouldn't happen, but safety check)
+    const likedVerseIdsFromStorage = LikedVersesManager.getLikedVerses()
+    poems = poems.filter(poem => {
+      const likedVerseIds = getLikedVerseIds(poem)
+      return likedVerseIds.length > 0
+    })
+    
     if (reset) {
       likedPoems.value = poems
     } else {
-      likedPoems.value = [...likedPoems.value, ...poems]
+      // Merge with existing, avoiding duplicates
+      const existingIds = new Set(likedPoems.value.map(p => String(p.poem_id || p.id)))
+      const newPoems = poems.filter(p => !existingIds.has(String(p.poem_id || p.id)))
+      likedPoems.value = [...likedPoems.value, ...newPoems]
     }
     
     likedPoemsOffset.value = offset + poems.length
