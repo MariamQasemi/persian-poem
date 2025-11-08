@@ -82,6 +82,37 @@
             </article>
           </div>
         </div>
+
+        <!-- Liked Poems Section -->
+        <div class="liked-poems-section">
+          <h2 class="section-title">اشعار با بیت‌های لایک شده</h2>
+          
+          <div v-if="isLoadingLikedPoems" class="loading">در حال بارگذاری...</div>
+          <div v-else-if="likedPoems.length === 0" class="empty-state">
+            هنوز بیتی لایک نکرده‌اید.
+          </div>
+          <div v-else class="liked-poems-list">
+            <article v-for="poem in likedPoems" :key="poem.id || poem.poem_id" class="poem-card">
+              <div class="poem-header">
+                <h3 class="poem-title">{{ poem.poet_name || poem.poet || 'نامشخص' }}</h3>
+                <router-link :to="`/poem/${poem.poem_id || poem.id}`" class="view-poem-btn">
+                  مشاهده شعر
+                </router-link>
+              </div>
+              <div class="poem-meta">
+                <span class="poem-category">{{ poem.category || 'عمومی' }}</span>
+                <span v-if="poem.title" class="poem-title-text">{{ poem.title }}</span>
+              </div>
+              <p v-if="poem.excerpt" class="poem-excerpt">{{ poem.excerpt }}</p>
+            </article>
+          </div>
+          
+          <div v-if="hasMoreLikedPoems" class="load-more-container">
+            <button @click="loadMoreLikedPoems" class="load-more-btn" :disabled="isLoadingLikedPoems">
+              بارگذاری بیشتر
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -94,11 +125,15 @@ import { ApiService } from '../services/api.js'
 import { useAuthStore } from '../stores/auth.js'
 
 const posts = ref([])
+const likedPoems = ref([])
 const isLoading = ref(false)
+const isLoadingLikedPoems = ref(false)
 const isSubmitting = ref(false)
 const isDeleting = ref(null)
 const submitError = ref('')
 const submitSuccess = ref('')
+const likedPoemsOffset = ref(0)
+const hasMoreLikedPoems = ref(false)
 
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.currentUser?.value || {})
@@ -132,6 +167,39 @@ async function loadPosts() {
   } finally {
     isLoading.value = false
   }
+}
+
+async function loadLikedPoems(reset = false) {
+  if (!authStore.isAuthenticated.value) {
+    likedPoems.value = []
+    return
+  }
+  
+  try {
+    isLoadingLikedPoems.value = true
+    const offset = reset ? 0 : likedPoemsOffset.value
+    const result = await ApiService.getLikedPoems({ limit: 20, offset })
+    
+    if (reset) {
+      likedPoems.value = result.poems || result || []
+    } else {
+      likedPoems.value = [...likedPoems.value, ...(result.poems || result || [])]
+    }
+    
+    likedPoemsOffset.value = offset + (result.poems?.length || result?.length || 0)
+    hasMoreLikedPoems.value = (result.poems?.length || result?.length || 0) === 20
+  } catch (e) {
+    console.error('Failed to load liked poems', e)
+    if (reset) {
+      likedPoems.value = []
+    }
+  } finally {
+    isLoadingLikedPoems.value = false
+  }
+}
+
+async function loadMoreLikedPoems() {
+  await loadLikedPoems(false)
 }
 
 async function handleCreatePost() {
@@ -211,6 +279,7 @@ async function handleDeletePost(postId) {
 
 onMounted(async () => {
   await loadPosts()
+  await loadLikedPoems(true)
 })
 </script>
 
@@ -411,6 +480,115 @@ onMounted(async () => {
 
 .posts-section {
   margin-top: 24px;
+}
+
+.liked-poems-section {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px dashed #2c2c2c;
+}
+
+.liked-poems-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.poem-card {
+  background: #121212;
+  border: 1px solid #2c2c2c;
+  border-radius: 10px;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+.poem-card:hover {
+  border-color: #702632;
+  background: #1a1a1a;
+}
+
+.poem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.poem-title {
+  margin: 0;
+  color: #fff;
+  font-size: 1.2rem;
+  flex: 1;
+}
+
+.view-poem-btn {
+  background: #702632;
+  color: white;
+  border: 1px solid #702632;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.view-poem-btn:hover {
+  background: #8b3a42;
+  border-color: #8b3a42;
+}
+
+.poem-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: #9aa0a6;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.poem-category {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(112, 38, 50, 0.2);
+  color: #702632;
+}
+
+.poem-title-text {
+  color: #ddd;
+}
+
+.poem-excerpt {
+  margin: 0;
+  color: #ddd;
+  line-height: 1.6;
+}
+
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.load-more-btn {
+  background: transparent;
+  color: #702632;
+  border: 1px solid #702632;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.load-more-btn:hover:not(:disabled) {
+  background: #702632;
+  color: white;
+}
+
+.load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .post-status {

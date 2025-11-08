@@ -82,9 +82,12 @@
               v-for="(poet, index) in filteredPoets" 
               :key="poet.id"
             >
-              <!-- Separator between selected and unselected -->
+              <!-- Separator between pinned and non-pinned, or between selected and unselected -->
               <div 
-                v-if="index > 0 && selectedPoets.includes(filteredPoets[index - 1].id) && !selectedPoets.includes(poet.id)"
+                v-if="index > 0 && (
+                  (pinnedPoets.includes(filteredPoets[index - 1].id) && !pinnedPoets.includes(poet.id)) ||
+                  (!pinnedPoets.includes(filteredPoets[index - 1].id) && !pinnedPoets.includes(poet.id) && selectedPoets.includes(filteredPoets[index - 1].id) && !selectedPoets.includes(poet.id))
+                )"
                 class="poet-list-separator"
               >
                 <span class="separator-line"></span>
@@ -93,7 +96,10 @@
               <div 
                 @click="selectPoet(poet)"
                 class="poet-item"
-                :class="{ 'selected': selectedPoets.includes(poet.id) }"
+                :class="{ 
+                  'selected': selectedPoets.includes(poet.id),
+                  'pinned': pinnedPoets.includes(poet.id)
+                }"
               >
                 <div class="poet-info">
                   <input 
@@ -105,8 +111,37 @@
                   />
                   <label :for="`poet-${poet.id}`" class="poet-name">{{ poet.name }}</label>
                 </div>
+                <button
+                  @click.stop="togglePinPoet(poet, $event)"
+                  class="pin-button"
+                  :class="{ 'pinned': pinnedPoets.includes(poet.id) }"
+                  :title="pinnedPoets.includes(poet.id) ? 'لغو سنجاق' : 'سنجاق کردن'"
+                >
+                  <svg v-if="pinnedPoets.includes(poet.id)" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16 12V2H17V12H19V13H16V12ZM5 14V9L12 2L19 9V14H12V22H11V14H5Z"/>
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16 12V2H17V12H19V13H16V12ZM5 14V9L12 2L19 9V14H12V22H11V14H5Z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
               </div>
             </div>
+          </div>
+        </div>
+        
+        <!-- Liked Poems Filter Section -->
+        <div class="filter-section">
+          <h4 class="filter-section-title">فیلتر نتایج</h4>
+          <div class="filter-option">
+            <label class="filter-checkbox-label">
+              <input 
+                type="checkbox" 
+                v-model="searchLikedPoemsOnly"
+                @change="onLikedPoemsFilterChange"
+                class="filter-checkbox"
+              />
+              <span>فقط اشعار با بیت‌های لایک شده</span>
+            </label>
           </div>
         </div>
       </div>
@@ -150,6 +185,16 @@ const selectedPoets = computed({
   set: (value) => searchStore.setSelectedPoets(value)
 })
 
+const pinnedPoets = computed({
+  get: () => searchStore.pinnedPoets,
+  set: (value) => searchStore.setPinnedPoets(value)
+})
+
+const searchLikedPoemsOnly = computed({
+  get: () => searchStore.searchLikedPoemsOnly,
+  set: (value) => searchStore.searchLikedPoemsOnly = value
+})
+
 const filteredPoets = computed(() => {
   let poets = availablePoets.value
   
@@ -160,13 +205,28 @@ const filteredPoets = computed(() => {
     )
   }
   
-  // Sort: selected poets first, then unselected
+  // Sort: pinned poets first, then selected poets, then unselected
   return poets.sort((a, b) => {
+    const aPinned = pinnedPoets.value.includes(a.id)
+    const bPinned = pinnedPoets.value.includes(b.id)
     const aSelected = selectedPoets.value.includes(a.id)
     const bSelected = selectedPoets.value.includes(b.id)
     
+    // Pinned poets always come first
+    if (aPinned && !bPinned) return -1
+    if (!aPinned && bPinned) return 1
+    
+    // Among pinned poets, maintain their order
+    if (aPinned && bPinned) {
+      const aIndex = pinnedPoets.value.indexOf(a.id)
+      const bIndex = pinnedPoets.value.indexOf(b.id)
+      return aIndex - bIndex
+    }
+    
+    // Among non-pinned poets, selected come before unselected
     if (aSelected && !bSelected) return -1
     if (!aSelected && bSelected) return 1
+    
     return 0
   })
 })
@@ -197,6 +257,21 @@ const selectPoet = async (poet) => {
   }
 }
 
+const togglePinPoet = async (poet, event) => {
+  event.stopPropagation() // Prevent triggering selectPoet
+  searchStore.togglePinPoet(poet.id)
+  
+  // Save to backend immediately if user is authenticated
+  await saveDefaultPoetsImmediate()
+}
+
+const onLikedPoemsFilterChange = async () => {
+  // Auto-apply filter when liked poems filter changes
+  if (searchStore.searchQuery.trim()) {
+    await applyFilters()
+  }
+}
+
 const saveDefaultPoetsImmediate = async () => {
   // Only save if user is authenticated
   if (!authStore.isAuthenticated.value) {
@@ -213,11 +288,18 @@ const saveDefaultPoetsImmediate = async () => {
       return poet ? poet.name : null
     }).filter(name => name !== null)
     
+    // Convert pinned poet IDs to poet names for saving
+    const pinnedPoetNames = searchStore.pinnedPoets.map(poetId => {
+      const poet = availablePoets.value.find(p => p.id === poetId)
+      return poet ? poet.name : null
+    }).filter(name => name !== null)
+    
     console.log('💾 Saving poets:', poetNames)
+    console.log('📌 Saving pinned poets:', pinnedPoetNames)
     
     try {
-      // Use the new favourite-poets endpoint
-      const updatedUser = await ApiService.updateFavouritePoets(poetNames)
+      // Use the new favourite-poets endpoint with pinned poets
+      const updatedUser = await ApiService.updateFavouritePoets(poetNames, pinnedPoetNames)
       
       console.log('✅ Favourite poets saved successfully:', updatedUser)
       
@@ -230,6 +312,7 @@ const saveDefaultPoetsImmediate = async () => {
       const userEmail = authStore.currentUser.value?.email
       if (userEmail) {
         localStorage.setItem(`favourite_poets_${userEmail}`, JSON.stringify(poetNames))
+        localStorage.setItem(`pinned_poets_${userEmail}`, JSON.stringify(pinnedPoetNames))
       }
       
     } catch (backendError) {
@@ -239,6 +322,7 @@ const saveDefaultPoetsImmediate = async () => {
       const userEmail = authStore.currentUser.value?.email
       if (userEmail) {
         localStorage.setItem(`favourite_poets_${userEmail}`, JSON.stringify(poetNames))
+        localStorage.setItem(`pinned_poets_${userEmail}`, JSON.stringify(pinnedPoetNames))
         console.log('✅ Saved to localStorage as fallback')
       }
     }
@@ -270,25 +354,45 @@ const loadDefaultPoets = async () => {
     // Don't call /auth/me again!
     const currentUser = authStore.currentUser.value
     let favouritePoets = null
+    let pinnedPoetsData = null
     
-    if (currentUser && currentUser.favourite_poets && Array.isArray(currentUser.favourite_poets) && currentUser.favourite_poets.length > 0) {
-      console.log('✅ Found saved favourite poets in auth store:', currentUser.favourite_poets)
-      favouritePoets = currentUser.favourite_poets
+    if (currentUser) {
+      // Load favourite poets
+      if (currentUser.favourite_poets && Array.isArray(currentUser.favourite_poets) && currentUser.favourite_poets.length > 0) {
+        console.log('✅ Found saved favourite poets in auth store:', currentUser.favourite_poets)
+        favouritePoets = currentUser.favourite_poets
+      }
+      
+      // Load pinned poets
+      if (currentUser.pinned_poets && Array.isArray(currentUser.pinned_poets) && currentUser.pinned_poets.length > 0) {
+        console.log('✅ Found saved pinned poets in auth store:', currentUser.pinned_poets)
+        pinnedPoetsData = currentUser.pinned_poets
+      }
     }
     
     // If auth store doesn't have it, try localStorage
-    if (!favouritePoets) {
-      const userEmail = authStore.currentUser.value?.email
-      if (userEmail) {
+    const userEmail = authStore.currentUser.value?.email
+    if (userEmail) {
+      if (!favouritePoets) {
         const savedData = localStorage.getItem(`favourite_poets_${userEmail}`)
         if (savedData) {
           favouritePoets = JSON.parse(savedData)
           console.log('✅ Found saved favourite poets in localStorage:', favouritePoets)
         }
       }
+      
+      if (!pinnedPoetsData) {
+        const pinnedData = localStorage.getItem(`pinned_poets_${userEmail}`)
+        if (pinnedData) {
+          pinnedPoetsData = JSON.parse(pinnedData)
+          console.log('✅ Found saved pinned poets in localStorage:', pinnedPoetsData)
+        }
+      }
     }
     
-    // If we found any saved poets, use them
+    let loadedAny = false
+    
+    // If we found any saved favourite poets, use them
     if (favouritePoets && favouritePoets.length > 0) {
       // Map poet names to IDs
       const savedPoetIds = favouritePoets
@@ -301,12 +405,32 @@ const loadDefaultPoets = async () => {
       if (savedPoetIds.length > 0) {
         console.log('✅ Using saved favourite poets:', savedPoetIds)
         searchStore.setSelectedPoets(savedPoetIds)
-        return true
+        loadedAny = true
       }
     }
     
-    console.log('ℹ️ No saved favourite poets found')
-    return false
+    // If we found any saved pinned poets, use them
+    if (pinnedPoetsData && pinnedPoetsData.length > 0) {
+      // Map poet names to IDs
+      const savedPinnedPoetIds = pinnedPoetsData
+        .map(poetName => {
+          const poet = availablePoets.value.find(p => p.name === poetName)
+          return poet ? poet.id : null
+        })
+        .filter(id => id !== null)
+      
+      if (savedPinnedPoetIds.length > 0) {
+        console.log('✅ Using saved pinned poets:', savedPinnedPoetIds)
+        searchStore.setPinnedPoets(savedPinnedPoetIds)
+        loadedAny = true
+      }
+    }
+    
+    if (!loadedAny) {
+      console.log('ℹ️ No saved favourite or pinned poets found')
+    }
+    
+    return loadedAny
   } catch (error) {
     console.error('❌ Failed to load favourite poets:', error)
     return false
@@ -347,8 +471,13 @@ const applyFilters = async () => {
     // Use real API call
     console.log('Searching with query:', searchStore.searchQuery)
     console.log('Selected poet names:', selectedPoetNames)
+    console.log('Search liked poems only:', searchStore.searchLikedPoemsOnly)
     
-    const results = await ApiService.searchPoems(searchStore.searchQuery, selectedPoetNames)
+    const results = await ApiService.searchPoems(
+      searchStore.searchQuery, 
+      selectedPoetNames,
+      { likedOnly: searchStore.searchLikedPoemsOnly }
+    )
     console.log('Search results:', results)
     searchStore.setSearchResults(results.results)
     searchStore.setTotalResults(results.totalResults)
@@ -557,6 +686,48 @@ onUnmounted(() => {
   font-family: 'Vazirmatn', sans-serif;
 }
 
+.filter-option {
+  margin-bottom: 15px;
+}
+
+.filter-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #CDC7C6;
+  font-size: 0.95rem;
+  font-family: 'Vazirmatn', sans-serif;
+  cursor: pointer;
+  user-select: none;
+}
+
+.filter-checkbox {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  background: transparent;
+  border: 2px solid #CDC7C6;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-checkbox:checked {
+  background: #702632;
+  border-color: #702632;
+}
+
+.filter-checkbox:checked::after {
+  content: '✓';
+  display: block;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+  line-height: 14px;
+}
+
 /* Selected Count */
 .selected-count {
   color: #702632;
@@ -657,6 +828,7 @@ onUnmounted(() => {
 .poet-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 12px;
   margin-bottom: 8px;
   background: #2a2a2a;
@@ -674,6 +846,14 @@ onUnmounted(() => {
 .poet-item.selected {
   background: rgba(112, 38, 50, 0.2);
   border-color: #702632;
+}
+
+.poet-item.pinned {
+  border-left: 3px solid #702632;
+}
+
+.poet-item.pinned.selected {
+  background: rgba(112, 38, 50, 0.3);
 }
 
 .poet-checkbox {
@@ -727,6 +907,40 @@ onUnmounted(() => {
   font-family: 'Vazirmatn', sans-serif;
   font-size: 0.95rem;
   cursor: pointer;
+}
+
+.pin-button {
+  background: transparent;
+  border: none;
+  color: #CDC7C6;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  margin-left: 8px;
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.pin-button:hover {
+  background: rgba(112, 38, 50, 0.2);
+  color: #702632;
+}
+
+.pin-button.pinned {
+  color: #702632;
+}
+
+.pin-button.pinned:hover {
+  background: rgba(112, 38, 50, 0.3);
+}
+
+.pin-button svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* Sidebar Footer */

@@ -100,8 +100,8 @@ const handleApiError = async (response, operation = 'API request') => {
 export class ApiService {
   static async searchPoems(query, poetFilters = [], options = {}) {
     try {
-      const { page = 1, limit = 50 } = options
-      console.log('Searching for:', query, 'with poets:', poetFilters, 'page:', page, 'limit:', limit)
+      const { page = 1, limit = 50, likedOnly = false } = options
+      console.log('Searching for:', query, 'with poets:', poetFilters, 'page:', page, 'limit:', limit, 'likedOnly:', likedOnly)
       
       // Build URL manually to ensure proper encoding
       let url = `${API_BASE_URL}/search?`
@@ -115,6 +115,11 @@ export class ApiService {
       if (poetFilters && poetFilters.length > 0) {
         const poetParam = poetFilters.join(',')
         url += `&poet=${encodeURIComponent(poetParam)}`
+      }
+      
+      // Add liked poems filter parameter
+      if (likedOnly) {
+        url += `&liked_only=true`
       }
       
       // Add pagination parameters
@@ -135,36 +140,85 @@ export class ApiService {
         throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
       }
       
-      const data = await response.json()
+      // Read response as text first to debug, then parse as JSON
+      const responseText = await response.text()
+      console.log('Raw response text (first 500 chars):', responseText.substring(0, 500))
+      
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError)
+        console.error('Response text:', responseText)
+        throw new Error('Failed to parse API response as JSON')
+      }
       console.log('API Response data:', data)
+      console.log('API Response type:', typeof data)
       console.log('API Response keys:', Object.keys(data || {}))
       
-      // Check if API response has the expected structure (new format uses 'verses' instead of 'poems')
-      // Also check for possible variations in response structure
+      // Check if API response has the expected structure
+      // The API returns: { query, poet_filter, total_results, verses: [...] }
       let verses = null
       
-      if (data && data.verses && Array.isArray(data.verses)) {
-        verses = data.verses
-      } else if (data && data.poems && Array.isArray(data.poems)) {
-        verses = data.poems
-      } else if (data && Array.isArray(data)) {
-        // API might return array directly
-        verses = data
-      } else if (data && data.results && Array.isArray(data.results)) {
-        verses = data.results
-      } else if (data && data.data && Array.isArray(data.data)) {
-        verses = data.data
+      // Primary check: data.verses (the standard response format)
+      // Use multiple checks to ensure we catch the array
+      if (data) {
+        if (data.verses) {
+          // Check if it's already an array
+          if (Array.isArray(data.verses)) {
+            verses = data.verses
+            console.log('✅ Found verses array with', verses.length, 'items')
+          } 
+          // Check if it's array-like (has length property)
+          else if (data.verses && typeof data.verses === 'object' && data.verses.length !== undefined) {
+            try {
+              verses = Array.from(data.verses)
+              console.log('✅ Converted array-like verses to array with', verses.length, 'items')
+            } catch (e) {
+              console.warn('Failed to convert array-like object:', e)
+            }
+          }
+        }
+        
+        // Fallback checks for other possible response formats
+        if (!verses && data.poems && Array.isArray(data.poems)) {
+          verses = data.poems
+          console.log('✅ Found poems array with', verses.length, 'items')
+        } else if (!verses && data.results && Array.isArray(data.results)) {
+          verses = data.results
+          console.log('✅ Found results array with', verses.length, 'items')
+        } else if (!verses && data.data && Array.isArray(data.data)) {
+          verses = data.data
+          console.log('✅ Found data array with', verses.length, 'items')
+        } else if (!verses && Array.isArray(data)) {
+          verses = data
+          console.log('✅ Data is array directly with', verses.length, 'items')
+        }
       }
       
-      if (!verses || !Array.isArray(verses)) {
-        console.error('Invalid API response structure:', {
-          data,
+      // Final validation - be very explicit about what we're checking
+      if (!verses) {
+        console.error('❌ No verses array found. Response structure:', {
+          hasData: !!data,
+          dataType: typeof data,
+          dataKeys: data ? Object.keys(data) : [],
           hasVerses: !!(data && data.verses),
-          hasPoems: !!(data && data.poems),
-          isArray: Array.isArray(data),
-          dataKeys: data ? Object.keys(data) : []
+          versesValue: data?.verses,
+          versesType: data?.verses ? typeof data.verses : 'N/A',
+          versesIsArray: data?.verses ? Array.isArray(data.verses) : 'N/A',
+          versesLength: data?.verses?.length,
+          sampleData: data ? JSON.stringify(data).substring(0, 500) : 'null'
         })
         throw new Error('Invalid API response structure: Expected verses or poems array')
+      }
+      
+      if (!Array.isArray(verses)) {
+        console.error('❌ Verses is not an array:', {
+          verses,
+          versesType: typeof verses,
+          versesConstructor: verses?.constructor?.name
+        })
+        throw new Error('Invalid API response structure: verses is not an array')
       }
       
       console.log('Using verses array with', verses.length, 'items')
@@ -250,17 +304,34 @@ export class ApiService {
           sortedVerses.forEach(verse => {
             // Neo-poem: no position field - each verse is a full-width line
             if (verse.position === undefined || verse.position === null) {
-              couplets.push({ fullWidth: true, text: verse.text, vorder: verse.vorder })
+              couplets.push({ 
+                fullWidth: true, 
+                text: verse.text, 
+                vorder: verse.vorder, 
+                verseId: verse.id,
+                isLiked: verse.is_liked || verse.liked || false
+              })
             } else if (verse.position === -1) {
               // Classic-poem: Full-width line - add as separate entry
-              couplets.push({ fullWidth: true, text: verse.text, vorder: verse.vorder })
+              couplets.push({ 
+                fullWidth: true, 
+                text: verse.text, 
+                vorder: verse.vorder, 
+                verseId: verse.id,
+                isLiked: verse.is_liked || verse.liked || false
+              })
             } else if (verse.position === 0) {
               // Classic-poem: Start of couplet - find matching position 1 verse (next vorder)
               const matchingVerse1 = sortedVerses.find(v => 
                 v.position === 1 && 
                 v.vorder === verse.vorder + 1
               )
-              couplets.push([verse.text, matchingVerse1 ? matchingVerse1.text : ''])
+              couplets.push({
+                text: [verse.text, matchingVerse1 ? matchingVerse1.text : ''],
+                verseIds: [verse.id, matchingVerse1 ? matchingVerse1.id : null],
+                verseLiked: [verse.is_liked || verse.liked || false, matchingVerse1 ? (matchingVerse1.is_liked || matchingVerse1.liked || false) : false],
+                vorder: verse.vorder
+              })
             }
             // Skip position 1 verses as they're handled with their position 0 partner
           })
@@ -275,17 +346,32 @@ export class ApiService {
           allContextVersesSorted.forEach(verse => {
             // Neo-poem: no position field - each verse is a full-width line
             if (verse.position === undefined || verse.position === null) {
-              allCouplets.push({ fullWidth: true, text: verse.text })
+              allCouplets.push({ 
+                fullWidth: true, 
+                text: verse.text, 
+                verseId: verse.id,
+                isLiked: verse.is_liked || verse.liked || false
+              })
             } else if (verse.position === -1) {
               // Classic-poem: Full-width line counts as 1 display line
-              allCouplets.push({ fullWidth: true, text: verse.text })
+              allCouplets.push({ 
+                fullWidth: true, 
+                text: verse.text, 
+                verseId: verse.id,
+                isLiked: verse.is_liked || verse.liked || false
+              })
             } else if (verse.position === 0) {
               // Classic-poem: Couplet (position 0 + 1) counts as 1 display line
               const matchingVerse1 = allContextVersesSorted.find(v => 
                 v.position === 1 && 
                 v.vorder === verse.vorder + 1
               )
-              allCouplets.push([verse.text, matchingVerse1 ? matchingVerse1.text : ''])
+              allCouplets.push({
+                text: [verse.text, matchingVerse1 ? matchingVerse1.text : ''],
+                verseIds: [verse.id, matchingVerse1 ? matchingVerse1.id : null],
+                verseLiked: [verse.is_liked || verse.liked || false, matchingVerse1 ? (matchingVerse1.is_liked || matchingVerse1.liked || false) : false],
+                vorder: verse.vorder
+              })
             }
           })
           
@@ -469,17 +555,34 @@ export class ApiService {
         sortedVerses.forEach(verse => {
           // Neo-poem: no position field - each verse is a full-width line
           if (verse.position === undefined || verse.position === null) {
-            couplets.push({ fullWidth: true, text: verse.text, vorder: verse.vorder })
+            couplets.push({ 
+              fullWidth: true, 
+              text: verse.text, 
+              vorder: verse.vorder, 
+              verseId: verse.id,
+              isLiked: verse.is_liked || verse.liked || false
+            })
           } else if (verse.position === -1) {
             // Classic-poem: Full-width line - add as separate entry
-            couplets.push({ fullWidth: true, text: verse.text, vorder: verse.vorder })
+            couplets.push({ 
+              fullWidth: true, 
+              text: verse.text, 
+              vorder: verse.vorder, 
+              verseId: verse.id,
+              isLiked: verse.is_liked || verse.liked || false
+            })
           } else if (verse.position === 0) {
             // Classic-poem: Start of couplet - find matching position 1 verse (next vorder)
             const matchingVerse1 = sortedVerses.find(v => 
               v.position === 1 && 
               v.vorder === verse.vorder + 1
             )
-            couplets.push([verse.text, matchingVerse1 ? matchingVerse1.text : ''])
+            couplets.push({
+              text: [verse.text, matchingVerse1 ? matchingVerse1.text : ''],
+              verseIds: [verse.id, matchingVerse1 ? matchingVerse1.id : null],
+              verseLiked: [verse.is_liked || verse.liked || false, matchingVerse1 ? (matchingVerse1.is_liked || matchingVerse1.liked || false) : false],
+              vorder: verse.vorder
+            })
           }
           // Skip position 1 verses as they're handled with their position 0 partner
         })
@@ -855,14 +958,16 @@ export class ApiService {
   }
 
   // Update user's default poets
-  static async updateFavouritePoets(poetNames) {
+  static async updateFavouritePoets(poetNames, pinnedPoetNames = []) {
     try {
       console.log('✏️ Updating user favourite poets...')
       console.log('📝 Favourite poets:', poetNames)
+      console.log('📌 Pinned poets:', pinnedPoetNames)
       
       // Prepare payload for /api/favourite-poets endpoint
       const payload = {
-        favourite_poets: poetNames
+        favourite_poets: poetNames,
+        pinned_poets: pinnedPoetNames || []
       }
       
       console.log('📤 Sending request to:', `${API_BASE_URL}/favourite-poets`)
@@ -1209,6 +1314,117 @@ export class ApiService {
       
     } catch (error) {
       console.error('❌ Failed to delete blog post:', error)
+      throw error
+    }
+  }
+
+  // Like or dislike a verse
+  static async likeVerse(verseId) {
+    try {
+      console.log('❤️ Liking verse:', verseId)
+      
+      // Use API_BASE_URL to go through proxy (avoids CORS issues)
+      const response = await fetch(`${API_BASE_URL}/verses/${verseId}/like`, {
+        method: 'POST',
+        headers: getDefaultHeaders()
+      })
+      
+      console.log('📥 Like verse response:', {
+        status: response.status,
+        ok: response.ok
+      })
+      
+      if (!response.ok) {
+        await handleApiError(response, 'Like Verse')
+      }
+      
+      // Handle 204 No Content response (no body to parse)
+      if (response.status === 204) {
+        console.log('✅ Verse liked successfully (204 No Content)')
+        return { success: true }
+      }
+      
+      const result = await response.json()
+      console.log('✅ Verse liked successfully:', result)
+      
+      return result
+      
+    } catch (error) {
+      console.error('❌ Failed to like verse:', error)
+      throw error
+    }
+  }
+
+  // Unlike a verse
+  static async unlikeVerse(verseId) {
+    try {
+      console.log('💔 Unliking verse:', verseId)
+      
+      // Use API_BASE_URL to go through proxy (avoids CORS issues)
+      const response = await fetch(`${API_BASE_URL}/verses/${verseId}/like`, {
+        method: 'DELETE',
+        headers: getDefaultHeaders()
+      })
+      
+      console.log('📥 Unlike verse response:', {
+        status: response.status,
+        ok: response.ok
+      })
+      
+      if (!response.ok) {
+        await handleApiError(response, 'Unlike Verse')
+      }
+      
+      // Handle 204 No Content response (no body to parse)
+      if (response.status === 204) {
+        console.log('✅ Verse unliked successfully (204 No Content)')
+        return { success: true }
+      }
+      
+      const result = await response.json()
+      console.log('✅ Verse unliked successfully:', result)
+      
+      return result
+      
+    } catch (error) {
+      console.error('❌ Failed to unlike verse:', error)
+      throw error
+    }
+  }
+
+  // Get liked poems
+  static async getLikedPoems(options = {}) {
+    try {
+      console.log('📖 Fetching liked poems...')
+      
+      const { limit = 20, offset = 0 } = options
+      const url = `${API_BASE_URL}/liked-poems?limit=${limit}&offset=${offset}`
+      
+      console.log('📤 Request URL:', url)
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getDefaultHeaders(),
+        mode: 'cors',
+        redirect: 'follow'
+      })
+      
+      console.log('📥 Liked poems response:', {
+        status: response.status,
+        ok: response.ok
+      })
+      
+      if (!response.ok) {
+        await handleApiError(response, 'Get Liked Poems')
+      }
+      
+      const result = await response.json()
+      console.log('✅ Liked poems fetched:', result)
+      
+      return result
+      
+    } catch (error) {
+      console.error('❌ Failed to get liked poems:', error)
       throw error
     }
   }

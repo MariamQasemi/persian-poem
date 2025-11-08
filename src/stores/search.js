@@ -6,6 +6,8 @@ export const useSearchStore = defineStore('search', () => {
   // State
   const searchQuery = ref('')
   const selectedPoets = ref([])
+  const pinnedPoets = ref([]) // Track pinned poets separately
+  const searchLikedPoemsOnly = ref(false) // Filter to show only poems with liked verses
   const searchResults = ref([])
   const isLoading = ref(false)
   const error = ref(null)
@@ -66,6 +68,32 @@ export const useSearchStore = defineStore('search', () => {
 
   const clearFilters = () => {
     selectedPoets.value = []
+    searchLikedPoemsOnly.value = false
+  }
+
+  const setPinnedPoets = (poets) => {
+    pinnedPoets.value = poets
+  }
+
+  const pinPoet = (poetId) => {
+    if (!pinnedPoets.value.includes(poetId)) {
+      pinnedPoets.value.push(poetId)
+    }
+  }
+
+  const unpinPoet = (poetId) => {
+    const index = pinnedPoets.value.indexOf(poetId)
+    if (index > -1) {
+      pinnedPoets.value.splice(index, 1)
+    }
+  }
+
+  const togglePinPoet = (poetId) => {
+    if (pinnedPoets.value.includes(poetId)) {
+      unpinPoet(poetId)
+    } else {
+      pinPoet(poetId)
+    }
   }
 
   const setSearchResults = (results) => {
@@ -199,6 +227,8 @@ export const useSearchStore = defineStore('search', () => {
     // State
     searchQuery,
     selectedPoets,
+    pinnedPoets,
+    searchLikedPoemsOnly,
     searchResults,
     isLoading,
     error,
@@ -221,6 +251,10 @@ export const useSearchStore = defineStore('search', () => {
     addPoetFilter,
     removePoetFilter,
     clearFilters,
+    setPinnedPoets,
+    pinPoet,
+    unpinPoet,
+    togglePinPoet,
     setSearchResults,
     appendSearchResults,
     setTotalPages,

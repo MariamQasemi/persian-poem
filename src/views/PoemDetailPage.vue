@@ -39,27 +39,66 @@
           >
             <!-- Full-width line (position -1) -->
             <div v-if="couplet.fullWidth" class="full-width-line">
-              <div 
-                class="poetry-line"
-                :class="{ highlighted: couplet.text && searchQuery && couplet.text.includes(searchQuery) }"
-                v-html="highlightSearchQuery(couplet.text || '')"
-              ></div>
+              <div class="poetry-line-wrapper">
+                <div 
+                  class="poetry-line"
+                  :class="{ highlighted: couplet.text && searchQuery && couplet.text.includes(searchQuery) }"
+                  v-html="highlightSearchQuery(couplet.text || '')"
+                ></div>
+                <button 
+                  v-if="couplet.verseId && authStore.isAuthenticated.value"
+                  @click="toggleLikeVerse(couplet.verseId)"
+                  class="like-button"
+                  :class="{ 'liked': isVerseLiked(couplet.verseId) }"
+                  :title="isVerseLiked(couplet.verseId) ? 'حذف لایک' : 'لایک'"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" :fill="isVerseLiked(couplet.verseId) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
             </div>
             <!-- Normal couplet (position 0 and 1) -->
             <div v-else class="poetry-columns">
               <div class="poetry-column">
-                <div 
-                  class="poetry-line"
-                  :class="{ highlighted: couplet[0] && searchQuery && couplet[0].includes(searchQuery) }"
-                  v-html="highlightSearchQuery(couplet[0] || '')"
-                ></div>
+                <div class="poetry-line-wrapper">
+                  <div 
+                    class="poetry-line"
+                    :class="{ highlighted: getCoupletText(couplet, 0) && searchQuery && getCoupletText(couplet, 0).includes(searchQuery) }"
+                    v-html="highlightSearchQuery(getCoupletText(couplet, 0) || '')"
+                  ></div>
+                  <button 
+                    v-if="getCoupletVerseId(couplet, 0) && authStore.isAuthenticated.value"
+                    @click="toggleLikeVerse(getCoupletVerseId(couplet, 0))"
+                    class="like-button"
+                    :class="{ 'liked': isVerseLiked(getCoupletVerseId(couplet, 0)) }"
+                    :title="isVerseLiked(getCoupletVerseId(couplet, 0)) ? 'حذف لایک' : 'لایک'"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" :fill="isVerseLiked(getCoupletVerseId(couplet, 0)) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
               <div class="poetry-column">
-                <div 
-                  class="poetry-line"
-                  :class="{ highlighted: couplet[1] && searchQuery && couplet[1].includes(searchQuery) }"
-                  v-html="highlightSearchQuery(couplet[1] || '')"
-                ></div>
+                <div class="poetry-line-wrapper">
+                  <div 
+                    class="poetry-line"
+                    :class="{ highlighted: getCoupletText(couplet, 1) && searchQuery && getCoupletText(couplet, 1).includes(searchQuery) }"
+                    v-html="highlightSearchQuery(getCoupletText(couplet, 1) || '')"
+                  ></div>
+                  <button 
+                    v-if="getCoupletVerseId(couplet, 1) && authStore.isAuthenticated.value"
+                    @click="toggleLikeVerse(getCoupletVerseId(couplet, 1))"
+                    class="like-button"
+                    :class="{ 'liked': isVerseLiked(getCoupletVerseId(couplet, 1)) }"
+                    :title="isVerseLiked(getCoupletVerseId(couplet, 1)) ? 'حذف لایک' : 'لایک'"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" :fill="isVerseLiked(getCoupletVerseId(couplet, 1)) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -74,24 +113,63 @@
           >
             <!-- Full-width line (position -1) -->
             <div v-if="couplet.fullWidth" class="full-width-line">
-              <div 
-                class="poetry-line"
-                :class="{ highlighted: couplet.text && searchQuery && couplet.text.includes(searchQuery) }"
-                v-html="highlightSearchQuery(couplet.text || '')"
-              ></div>
+              <div class="poetry-line-wrapper">
+                <div 
+                  class="poetry-line"
+                  :class="{ highlighted: couplet.text && searchQuery && couplet.text.includes(searchQuery) }"
+                  v-html="highlightSearchQuery(couplet.text || '')"
+                ></div>
+                <button 
+                  v-if="couplet.verseId && authStore.isAuthenticated.value"
+                  @click="toggleLikeVerse(couplet.verseId)"
+                  class="like-button"
+                  :class="{ 'liked': isVerseLiked(couplet.verseId) }"
+                  :title="isVerseLiked(couplet.verseId) ? 'حذف لایک' : 'لایک'"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" :fill="isVerseLiked(couplet.verseId) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
             </div>
             <!-- Normal couplet (position 0 and 1) -->
             <div v-else class="poetry-column">
-              <div 
-                class="poetry-line"
-                :class="{ highlighted: couplet[0] && searchQuery && couplet[0].includes(searchQuery) }"
-                v-html="highlightSearchQuery(couplet[0] || '')"
-              ></div>
-              <div 
-                class="poetry-line"
-                :class="{ highlighted: couplet[1] && searchQuery && couplet[1].includes(searchQuery) }"
-                v-html="highlightSearchQuery(couplet[1] || '')"
-              ></div>
+              <div class="poetry-line-wrapper">
+                <div 
+                  class="poetry-line"
+                  :class="{ highlighted: getCoupletText(couplet, 0) && searchQuery && getCoupletText(couplet, 0).includes(searchQuery) }"
+                  v-html="highlightSearchQuery(getCoupletText(couplet, 0) || '')"
+                ></div>
+                <button 
+                  v-if="getCoupletVerseId(couplet, 0)"
+                  @click="toggleLikeVerse(getCoupletVerseId(couplet, 0))"
+                  class="like-button"
+                  :class="{ 'liked': isVerseLiked(getCoupletVerseId(couplet, 0)) }"
+                  :title="isVerseLiked(getCoupletVerseId(couplet, 0)) ? 'حذف لایک' : 'لایک'"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" :fill="isVerseLiked(getCoupletVerseId(couplet, 0)) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="poetry-line-wrapper">
+                <div 
+                  class="poetry-line"
+                  :class="{ highlighted: getCoupletText(couplet, 1) && searchQuery && getCoupletText(couplet, 1).includes(searchQuery) }"
+                  v-html="highlightSearchQuery(getCoupletText(couplet, 1) || '')"
+                ></div>
+                <button 
+                  v-if="getCoupletVerseId(couplet, 1)"
+                  @click="toggleLikeVerse(getCoupletVerseId(couplet, 1))"
+                  class="like-button"
+                  :class="{ 'liked': isVerseLiked(getCoupletVerseId(couplet, 1)) }"
+                  :title="isVerseLiked(getCoupletVerseId(couplet, 1)) ? 'حذف لایک' : 'لایک'"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" :fill="isVerseLiked(getCoupletVerseId(couplet, 1)) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -126,17 +204,75 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiService } from '../services/api.js'
 import { useSearchStore } from '../stores/search.js'
+import { useAuthStore } from '../stores/auth.js'
 
 const route = useRoute()
 const router = useRouter()
 const searchStore = useSearchStore()
+const authStore = useAuthStore()
 
 const poem = ref(null)
 const loading = ref(false)
 const error = ref(null)
+const likedVerses = ref(new Set()) // Track liked verses
 
 // Get search query from store for highlighting
 const searchQuery = computed(() => searchStore.searchQuery)
+
+// Helper function to get couplet text (handles both old array format and new object format)
+const getCoupletText = (couplet, index) => {
+  if (couplet.fullWidth) {
+    return couplet.text
+  }
+  // New format: object with text array
+  if (couplet.text && Array.isArray(couplet.text)) {
+    return couplet.text[index] || ''
+  }
+  // Old format: array directly
+  if (Array.isArray(couplet)) {
+    return couplet[index] || ''
+  }
+  return ''
+}
+
+// Helper function to get verse ID (handles both old array format and new object format)
+const getCoupletVerseId = (couplet, index) => {
+  if (couplet.fullWidth) {
+    return couplet.verseId || null
+  }
+  // New format: object with verseIds array
+  if (couplet.verseIds && Array.isArray(couplet.verseIds)) {
+    return couplet.verseIds[index] || null
+  }
+  return null
+}
+
+// Check if verse is liked
+const isVerseLiked = (verseId) => {
+  return verseId && likedVerses.value.has(verseId)
+}
+
+// Toggle like for a verse
+const toggleLikeVerse = async (verseId) => {
+  if (!verseId || !authStore.isAuthenticated.value) return
+  
+  const isLiked = likedVerses.value.has(verseId)
+  
+  try {
+    if (isLiked) {
+      // Unlike: use DELETE method
+      await ApiService.unlikeVerse(verseId)
+      likedVerses.value.delete(verseId)
+    } else {
+      // Like: use POST method
+      await ApiService.likeVerse(verseId)
+      likedVerses.value.add(verseId)
+    }
+  } catch (err) {
+    console.error('Error toggling like:', err)
+    alert(isLiked ? 'خطا در حذف لایک بیت. لطفاً دوباره تلاش کنید.' : 'خطا در لایک کردن بیت. لطفاً دوباره تلاش کنید.')
+  }
+}
 
 const loadPoem = async () => {
   const poemId = route.params.id
@@ -153,6 +289,29 @@ const loadPoem = async () => {
     const poemData = await ApiService.getFullPoem(poemId)
     console.log('Loaded poem:', poemData)
     poem.value = poemData
+    
+    // Initialize liked verses from poem data
+    if (poemData.couplets) {
+      likedVerses.value.clear()
+      poemData.couplets.forEach(couplet => {
+        if (couplet.fullWidth && couplet.verseId) {
+          // Check if verse is liked from API data
+          if (couplet.isLiked) {
+            likedVerses.value.add(couplet.verseId)
+          }
+        } else if (couplet.verseIds && Array.isArray(couplet.verseIds)) {
+          // Check liked status for couplet verses
+          if (couplet.verseLiked && Array.isArray(couplet.verseLiked)) {
+            couplet.verseIds.forEach((verseId, index) => {
+              if (verseId && couplet.verseLiked[index]) {
+                likedVerses.value.add(verseId)
+              }
+            })
+          }
+        }
+      })
+      console.log('Initialized liked verses:', Array.from(likedVerses.value))
+    }
   } catch (err) {
     console.error('Error loading poem:', err)
     error.value = 'خطا در بارگذاری شعر. لطفاً دوباره تلاش کنید.'
@@ -176,7 +335,9 @@ const copyPoem = async () => {
       if (couplet.fullWidth) {
         return couplet.text
       } else {
-        return `${couplet[0]}    ${couplet[1]}`
+        const text1 = getCoupletText(couplet, 0)
+        const text2 = getCoupletText(couplet, 1)
+        return `${text1}    ${text2}`
       }
     })
     .join('\n')
@@ -201,7 +362,9 @@ const sharePoem = async () => {
       if (couplet.fullWidth) {
         return couplet.text
       } else {
-        return `${couplet[0]}    ${couplet[1]}`
+        const text1 = getCoupletText(couplet, 0)
+        const text2 = getCoupletText(couplet, 1)
+        return `${text1}    ${text2}`
       }
     })
     .join('\n')
@@ -406,6 +569,13 @@ onMounted(() => {
   width: 100%;
 }
 
+.poetry-line-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
 .poetry-line {
   margin: 5px 0;
   padding: 8px 10px;
@@ -418,7 +588,7 @@ onMounted(() => {
   min-height: 40px;
   display: flex;
   align-items: center;
-  width: 100%;
+  flex: 1;
 }
 
 .poetry-line:hover {
@@ -475,6 +645,40 @@ onMounted(() => {
 .action-btn svg {
   width: 20px;
   height: 20px;
+}
+
+.like-button {
+  background: transparent;
+  border: 1px solid #CDC7C6;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #CDC7C6;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.like-button:hover {
+  background: rgba(112, 38, 50, 0.2);
+  border-color: #702632;
+  color: #702632;
+  transform: scale(1.1);
+}
+
+.like-button.liked {
+  color: #702632;
+  border-color: #702632;
+  background: rgba(112, 38, 50, 0.2);
+}
+
+.like-button svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* Mobile Styles */
