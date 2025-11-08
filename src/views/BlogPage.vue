@@ -95,9 +95,23 @@
             <article v-for="poem in likedPoems" :key="poem.id || poem.poem_id" class="poem-card">
               <div class="poem-header">
                 <h3 class="poem-title">{{ poem.poet_name || poem.poet || 'نامشخص' }}</h3>
-                <router-link :to="`/poem/${poem.poem_id || poem.id}`" class="view-poem-btn">
-                  مشاهده شعر
-                </router-link>
+                <div class="poem-header-actions">
+                  <router-link :to="`/poem/${poem.poem_id || poem.id}`" class="view-poem-btn">
+                    مشاهده شعر
+                  </router-link>
+                  <button 
+                    v-if="authStore.isAuthenticated.value"
+                    @click="removeLikedPoem(poem)" 
+                    class="remove-poem-btn"
+                    :disabled="isRemovingPoem === (poem.poem_id || poem.id)"
+                    :title="'حذف تمام بیت‌های لایک شده'"
+                  >
+                    <svg v-if="isRemovingPoem !== (poem.poem_id || poem.id)" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span v-else class="removing-text">در حال حذف...</span>
+                  </button>
+                </div>
               </div>
               <div class="poem-meta">
                 <span class="poem-category">{{ poem.category || 'عمومی' }}</span>
@@ -144,6 +158,7 @@ const isLoading = ref(false)
 const isLoadingLikedPoems = ref(false)
 const isSubmitting = ref(false)
 const isDeleting = ref(null)
+const isRemovingPoem = ref(null) // Track which poem is being removed
 const submitError = ref('')
 const submitSuccess = ref('')
 const likedPoemsOffset = ref(0)
@@ -229,6 +244,96 @@ const getLikedVerses = (poem) => {
   }
   
   return []
+}
+
+// Helper function to extract all liked verse IDs from a poem
+const getLikedVerseIds = (poem) => {
+  if (!poem) return []
+  
+  const likedVerseIds = []
+  const likedVerseIdsFromStorage = LikedVersesManager.getLikedVerses()
+  
+  // Check if poem has couplets with liked verses
+  if (poem.couplets && Array.isArray(poem.couplets)) {
+    poem.couplets.forEach(couplet => {
+      if (couplet.fullWidth && couplet.verseId) {
+        // Check both API data and localStorage
+        if (couplet.isLiked || likedVerseIdsFromStorage.has(String(couplet.verseId))) {
+          likedVerseIds.push(couplet.verseId)
+        }
+      } else if (couplet.verseIds && Array.isArray(couplet.verseIds)) {
+        couplet.verseIds.forEach((verseId, index) => {
+          if (verseId) {
+            // Check both API data and localStorage
+            const isLikedInApi = couplet.verseLiked && Array.isArray(couplet.verseLiked) && couplet.verseLiked[index]
+            const isLikedInStorage = likedVerseIdsFromStorage.has(String(verseId))
+            if (isLikedInApi || isLikedInStorage) {
+              likedVerseIds.push(verseId)
+            }
+          }
+        })
+      }
+    })
+  }
+  
+  // Check if poem has verses array with liked status
+  if (poem.verses && Array.isArray(poem.verses)) {
+    poem.verses.forEach(verse => {
+      const verseId = verse.id || verse.verse_id
+      if (verseId && ((verse.is_liked || verse.liked) || likedVerseIdsFromStorage.has(String(verseId)))) {
+        likedVerseIds.push(verseId)
+      }
+    })
+  }
+  
+  return likedVerseIds
+}
+
+// Remove a poem by unliking all its verses
+const removeLikedPoem = async (poem) => {
+  if (!poem || !authStore.isAuthenticated.value) return
+  
+  const poemId = poem.poem_id || poem.id
+  if (!poemId) return
+  
+  // Confirm before removing
+  if (!confirm('آیا مطمئن هستید که می‌خواهید تمام بیت‌های لایک شده این شعر را حذف کنید؟')) {
+    return
+  }
+  
+  try {
+    isRemovingPoem.value = poemId
+    
+    // Get all liked verse IDs from this poem
+    const likedVerseIds = getLikedVerseIds(poem)
+    
+    console.log('🗑️ Removing poem with', likedVerseIds.length, 'liked verses')
+    
+    // Unlike each verse via API
+    const unlikePromises = likedVerseIds.map(verseId => 
+      ApiService.unlikeVerse(verseId).catch(err => {
+        console.error(`Failed to unlike verse ${verseId}:`, err)
+        // Continue even if one fails
+      })
+    )
+    
+    await Promise.all(unlikePromises)
+    
+    // Remove verse IDs from localStorage
+    likedVerseIds.forEach(verseId => {
+      LikedVersesManager.removeLikedVerse(verseId)
+    })
+    
+    // Remove poem from the list
+    likedPoems.value = likedPoems.value.filter(p => (p.poem_id || p.id) !== poemId)
+    
+    console.log('✅ Poem removed successfully')
+  } catch (err) {
+    console.error('Error removing poem:', err)
+    alert('خطا در حذف شعر. لطفاً دوباره تلاش کنید.')
+  } finally {
+    isRemovingPoem.value = null
+  }
 }
 
 async function loadPosts() {
@@ -603,6 +708,12 @@ onMounted(async () => {
   margin-bottom: 8px;
 }
 
+.poem-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .poem-title {
   margin: 0;
   color: #fff;
@@ -625,6 +736,45 @@ onMounted(async () => {
 .view-poem-btn:hover {
   background: #8b3a42;
   border-color: #8b3a42;
+}
+
+.remove-poem-btn {
+  background: transparent;
+  color: #9aa0a6;
+  border: 1px solid #2c2c2c;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+}
+
+.remove-poem-btn:hover:not(:disabled) {
+  background: #e74c3c;
+  border-color: #e74c3c;
+  color: white;
+  transform: scale(1.05);
+}
+
+.remove-poem-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.remove-poem-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.removing-text {
+  font-size: 0.75rem;
+  color: #9aa0a6;
 }
 
 .poem-meta {
