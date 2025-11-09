@@ -219,6 +219,7 @@ import { ApiService } from '../services/api.js'
 import { CookieManager } from '../utils/cookieManager.js'
 import { useAuthStore } from '../stores/auth.js'
 import { LikedVersesManager } from '../utils/likedVersesManager.js'
+import { formatPersianDate } from '../utils/dateFormatter.js'
 import Navbar from '../components/Navbar.vue'
 
 const router = useRouter()
@@ -320,12 +321,7 @@ const loadUserData = async () => {
 
 const formatDate = (dateString) => {
   if (!dateString) return 'نامشخص'
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('fa-IR')
-  } catch {
-    return 'نامشخص'
-  }
+  return formatPersianDate(dateString)
 }
 
 const loadUsers = async () => {

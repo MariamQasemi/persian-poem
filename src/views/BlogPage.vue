@@ -172,6 +172,7 @@ import PostModal from '../components/PostModal.vue'
 import { ApiService } from '../services/api.js'
 import { useAuthStore } from '../stores/auth.js'
 import { getVerseInfo, setVerseInfo } from '../utils/verseCache.js'
+import { formatPersianDate } from '../utils/dateFormatter.js'
 
 const posts = ref([])
 const notes = ref([])
@@ -189,12 +190,7 @@ const currentUser = computed(() => authStore.currentUser?.value || {})
 
 const formatDate = (iso) => {
   if (!iso) return '—'
-  try {
-    const d = new Date(iso)
-    return d.toLocaleDateString('fa-IR')
-  } catch (e) {
-    return '—'
-  }
+  return formatPersianDate(iso)
 }
 
 async function loadPosts() {

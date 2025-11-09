@@ -240,6 +240,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ApiService } from '../services/api.js'
 import { useAuthStore } from '../stores/auth.js'
 import { getVerseInfo, setVerseInfo } from '../utils/verseCache.js'
+import { formatPersianDate } from '../utils/dateFormatter.js'
 import Navbar from '../components/Navbar.vue'
 
 const route = useRoute()
@@ -567,12 +568,7 @@ const handleUpdateNote = async () => {
 
 const formatDate = (iso) => {
   if (!iso) return '—'
-  try {
-    const d = new Date(iso)
-    return d.toLocaleDateString('fa-IR')
-  } catch (e) {
-    return '—'
-  }
+  return formatPersianDate(iso)
 }
 
 const formatContent = (content) => {
