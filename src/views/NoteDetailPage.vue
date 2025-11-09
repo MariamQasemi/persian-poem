@@ -204,7 +204,7 @@
               </div>
               <div class="verse-context-item">
                 <strong>بیت:</strong>
-                <div class="verse-text">{{ verseInfo.verse_text || verseInfo.text || 'متن بیت در دسترس نیست' }}</div>
+                <div class="verse-text">{{ getVerseText(verseInfo) || 'متن بیت در دسترس نیست' }}</div>
               </div>
             </div>
           </div>
@@ -627,10 +627,20 @@ const loadVerseInfo = async (verseId, noteData = null) => {
     const verseData = await ApiService.getVerseDetails(verseId, noteData)
     
     // Normalize verse data structure
-    // IMPORTANT: Use verseData.text/verse_text (NOT note.text) for verse text
+    // CRITICAL: Use verseData.text/verse_text (NOT note.text) for verse text
+    // Ensure we never use note.text or note.content for verse text
+    const noteText = noteData?.text || noteData?.content || ''
+    let verseText = verseData.verse_text || verseData.text || ''
+    
+    // Safety check: if verse text matches note text, it's wrong - clear it
+    if (verseText === noteText && noteText) {
+      console.warn('⚠️ Verse text matches note text - this is incorrect, clearing verse text')
+      verseText = ''
+    }
+    
     const normalized = {
       verse_id: verseData.id || verseData.verse_id || verseId,
-      verse_text: verseData.verse_text || verseData.text || '', // Use verse text, not note text
+      verse_text: verseText, // Use verse text, not note text
       poem_id: verseData.poem_id || verseData.poem?.id || null,
       poem_title: verseData.poem_title || verseData.poem?.title || verseData.poem_name || '',
       poet_id: verseData.poet_id || verseData.poet?.id || null,
@@ -638,6 +648,8 @@ const loadVerseInfo = async (verseId, noteData = null) => {
     }
     
     console.log('Normalized verse info:', normalized)
+    console.log('Note text (should NOT be in verse):', noteText)
+    console.log('Verse text (should be different from note):', verseText)
     verseInfo.value = normalized
     setVerseInfo(verseId, normalized)
   } catch (err) {
@@ -647,6 +659,22 @@ const loadVerseInfo = async (verseId, noteData = null) => {
   } finally {
     loadingVerseInfo.value = false
   }
+}
+
+// Helper function to get verse text, ensuring it's not note text
+const getVerseText = (verseInfo) => {
+  if (!verseInfo) return ''
+  
+  const verseText = verseInfo.verse_text || verseInfo.text || ''
+  const noteText = note.value?.text || note.value?.content || ''
+  
+  // Safety check: if verse text matches note text, return empty (it's wrong)
+  if (verseText && noteText && verseText === noteText) {
+    console.warn('⚠️ Verse text matches note text - not displaying')
+    return ''
+  }
+  
+  return verseText
 }
 
 const goBack = () => {

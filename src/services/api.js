@@ -1650,38 +1650,49 @@ export class ApiService {
         
         if (verse) {
           console.log('✅ Verse found in note data:', verse)
-          // Ensure we use verse.text (not note.text) for verse text
-          const verseText = verse.text || verse.verse_text || ''
+          // CRITICAL: Ensure we use verse.text (not note.text) for verse text
+          // Never use noteData.text or noteData.content for verse text
+          const verseText = (verse.text && verse.text !== noteData.text && verse.text !== noteData.content) 
+            ? verse.text 
+            : (verse.verse_text && verse.verse_text !== noteData.text && verse.verse_text !== noteData.content)
+            ? verse.verse_text
+            : ''
           
-          // Try to get poem info from verse or note data
-          const poemId = verse.poem_id || noteData.poem_id || null
-          let poemTitle = verse.poem_title || verse.poem_name || noteData.poem_title || noteData.poem_name || null
-          let poetId = verse.poet_id || noteData.poet_id || null
-          let poetName = verse.poet_name || verse.poet || noteData.poet_name || noteData.poet || null
-          
-          // If we have poem_id but missing poem/poet info, try to fetch from poem endpoint
-          if (poemId && (!poemTitle || !poetName)) {
-            try {
-              const poemData = await this.getFullPoem(poemId)
-              if (poemData) {
-                poemTitle = poemTitle || poemData.title || poemData.name || null
-                poetId = poetId || poemData.poet_id || null
-                poetName = poetName || poemData.poet_name || poemData.poet?.name || null
+          // If verse text is empty or same as note text, we need to fetch from verse endpoint
+          if (!verseText || verseText === noteData.text || verseText === noteData.content) {
+            console.log('⚠️ Verse text is empty or matches note text, fetching from verse endpoint')
+            // Don't return here, let it fall through to verse endpoint fetch
+          } else {
+            // Try to get poem info from verse or note data
+            const poemId = verse.poem_id || noteData.poem_id || null
+            let poemTitle = verse.poem_title || verse.poem_name || noteData.poem_title || noteData.poem_name || null
+            let poetId = verse.poet_id || noteData.poet_id || null
+            let poetName = verse.poet_name || verse.poet || noteData.poet_name || noteData.poet || null
+            
+            // If we have poem_id but missing poem/poet info, try to fetch from poem endpoint
+            if (poemId && (!poemTitle || !poetName)) {
+              try {
+                const poemData = await this.getFullPoem(poemId)
+                if (poemData) {
+                  poemTitle = poemTitle || poemData.title || poemData.name || null
+                  poetId = poetId || poemData.poet_id || null
+                  poetName = poetName || poemData.poet_name || poemData.poet?.name || null
+                }
+              } catch (e) {
+                console.log('Could not fetch poem details:', e)
               }
-            } catch (e) {
-              console.log('Could not fetch poem details:', e)
             }
-          }
-          
-          return {
-            id: verse.id,
-            text: verseText, // Use verse.text, not note.text
-            verse_text: verseText,
-            vorder: verse.vorder,
-            poem_id: poemId,
-            poem_title: poemTitle,
-            poet_id: poetId,
-            poet_name: poetName
+            
+            return {
+              id: verse.id,
+              text: verseText, // Use verse.text, not note.text
+              verse_text: verseText,
+              vorder: verse.vorder,
+              poem_id: poemId,
+              poem_title: poemTitle,
+              poet_id: poetId,
+              poet_name: poetName
+            }
           }
         }
       }
