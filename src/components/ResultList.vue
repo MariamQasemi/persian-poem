@@ -1,5 +1,12 @@
 <template>
   <div class="result-list">
+    <!-- Note Modal -->
+    <NoteModal 
+      :isOpen="isNoteModalOpen" 
+      :verseId="selectedVerseId"
+      @close="closeNoteModal"
+      @created="handleNoteCreated"
+    />
     <div v-if="searchStore.isLoading" class="loading-state">
       <p>در حال جستجو...</p>
     </div>
@@ -73,8 +80,10 @@
                     class="poetry-line"
                     :class="{ 
                       highlighted: couplet.text && couplet.text.includes(searchStore.searchQuery),
-                      'liked-verse': isVerseLiked(couplet.verseId)
+                      'liked-verse': isVerseLiked(couplet.verseId),
+                      'clickable': authStore.isAuthenticated.value
                     }"
+                    @click="handleVerseClick(couplet.verseId)"
                     v-html="highlightSearchQuery(couplet.text || '')"
                   ></div>
                   <button 
@@ -98,8 +107,10 @@
                       class="poetry-line"
                       :class="{ 
                         highlighted: getCoupletText(couplet, 0) && getCoupletText(couplet, 0).includes(searchStore.searchQuery),
-                        'liked-verse': isVerseLiked(getCoupletVerseId(couplet, 0))
+                        'liked-verse': isVerseLiked(getCoupletVerseId(couplet, 0)),
+                        'clickable': authStore.isAuthenticated.value
                       }"
+                      @click="handleVerseClick(getCoupletVerseId(couplet, 0))"
                       v-html="highlightSearchQuery(getCoupletText(couplet, 0) || '')"
                     ></div>
                     <button 
@@ -121,8 +132,10 @@
                       class="poetry-line"
                       :class="{ 
                         highlighted: getCoupletText(couplet, 1) && getCoupletText(couplet, 1).includes(searchStore.searchQuery),
-                        'liked-verse': isVerseLiked(getCoupletVerseId(couplet, 1))
+                        'liked-verse': isVerseLiked(getCoupletVerseId(couplet, 1)),
+                        'clickable': authStore.isAuthenticated.value
                       }"
+                      @click="handleVerseClick(getCoupletVerseId(couplet, 1))"
                       v-html="highlightSearchQuery(getCoupletText(couplet, 1) || '')"
                     ></div>
                     <button 
@@ -178,7 +191,11 @@
                 <div class="poetry-line-wrapper">
                   <div 
                     class="poetry-line"
-                    :class="{ highlighted: getCoupletText(couplet, 0) && getCoupletText(couplet, 0).includes(searchStore.searchQuery) }"
+                    :class="{ 
+                      highlighted: getCoupletText(couplet, 0) && getCoupletText(couplet, 0).includes(searchStore.searchQuery),
+                      'clickable': authStore.isAuthenticated.value
+                    }"
+                    @click="handleVerseClick(getCoupletVerseId(couplet, 0))"
                     v-html="highlightSearchQuery(getCoupletText(couplet, 0) || '')"
                   ></div>
                   <button 
@@ -196,7 +213,11 @@
                 <div class="poetry-line-wrapper">
                   <div 
                     class="poetry-line"
-                    :class="{ highlighted: getCoupletText(couplet, 1) && getCoupletText(couplet, 1).includes(searchStore.searchQuery) }"
+                    :class="{ 
+                      highlighted: getCoupletText(couplet, 1) && getCoupletText(couplet, 1).includes(searchStore.searchQuery),
+                      'clickable': authStore.isAuthenticated.value
+                    }"
+                    @click="handleVerseClick(getCoupletVerseId(couplet, 1))"
                     v-html="highlightSearchQuery(getCoupletText(couplet, 1) || '')"
                   ></div>
                   <button 
@@ -278,11 +299,14 @@ import { useSearchStore } from '../stores/search'
 import { useAuthStore } from '../stores/auth.js'
 import { ApiService } from '../services/api.js'
 import { LikedVersesManager } from '../utils/likedVersesManager.js'
+import NoteModal from './NoteModal.vue'
 
 const router = useRouter()
 const searchStore = useSearchStore()
 const authStore = useAuthStore()
 const pageInput = ref(searchStore.currentPage)
+const isNoteModalOpen = ref(false)
+const selectedVerseId = ref(null)
 
 // Helper function to get couplet text (handles both old array format and new object format)
 const getCoupletText = (couplet, index) => {
@@ -612,10 +636,26 @@ const viewFullPoem = () => {
   }
   
   console.log('Navigating to poem:', currentPoem.value.id)
-  router.push({
-    name: 'PoemDetail',
-    params: { id: currentPoem.value.id }
-  })
+  router.push(`/poem/${currentPoem.value.id}`)
+}
+
+// Handle verse click to open note modal
+const handleVerseClick = (verseId) => {
+  if (!verseId || !authStore.isAuthenticated.value) return
+  selectedVerseId.value = verseId
+  isNoteModalOpen.value = true
+}
+
+// Close note modal
+const closeNoteModal = () => {
+  isNoteModalOpen.value = false
+  selectedVerseId.value = null
+}
+
+// Handle note created
+const handleNoteCreated = (note) => {
+  // Note created successfully, modal will close automatically
+  console.log('Note created:', note)
 }
 
 // Load liked verses from localStorage on component mount
@@ -938,6 +978,10 @@ onMounted(() => {
   background: rgba(112, 38, 50, 0.1);
   padding-right: 10px;
   border-radius: 4px;
+}
+
+.poetry-line.clickable {
+  cursor: pointer;
 }
 
 .poetry-line.highlighted {

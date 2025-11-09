@@ -7,6 +7,7 @@ import LoginPage from '../views/LoginPage.vue'
 import ProfilePage from '../views/ProfilePage.vue'
 import BlogPage from '../views/BlogPage.vue'
 import BlogPostDetailPage from '../views/BlogPostDetailPage.vue'
+import NoteDetailPage from '../views/NoteDetailPage.vue'
 import { CookieManager } from '../utils/cookieManager.js'
 
 const routes = [
@@ -26,6 +27,13 @@ const routes = [
     path: '/blog/:id',
     name: 'BlogPostDetail',
     component: BlogPostDetailPage,
+    props: true,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/notes/:id',
+    name: 'NoteDetail',
+    component: NoteDetailPage,
     props: true,
     meta: { requiresAuth: true }
   },

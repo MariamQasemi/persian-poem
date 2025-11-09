@@ -1,5 +1,13 @@
 <template>
   <div class="poem-detail-page">
+    <!-- Note Modal -->
+    <NoteModal 
+      :isOpen="isNoteModalOpen" 
+      :verseId="selectedVerseId"
+      @close="closeNoteModal"
+      @created="handleNoteCreated"
+    />
+
     <!-- Back Button -->
     <button @click="goBack" class="back-btn">
       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -44,10 +52,26 @@
                   class="poetry-line"
                   :class="{ 
                     highlighted: couplet.text && searchQuery && couplet.text.includes(searchQuery),
-                    'liked-verse': isVerseLiked(couplet.verseId)
+                    'liked-verse': isVerseLiked(couplet.verseId),
+                    'has-voice-note': hasVoiceNote(couplet.verseId),
+                    'clickable': authStore.isAuthenticated.value
                   }"
+                  @click="handleVerseClick(couplet.verseId)"
                   v-html="highlightSearchQuery(couplet.text || '')"
                 ></div>
+                <button 
+                  v-if="hasVoiceNote(couplet.verseId)"
+                  @click.stop="playVoiceNote(couplet.verseId)"
+                  class="play-voice-btn"
+                  :title="isPlayingVoice(couplet.verseId) ? 'توقف' : 'پخش'"
+                >
+                  <svg v-if="!isPlayingVoice(couplet.verseId)" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 4H10V20H6V4ZM14 4H18V20H14V4Z" fill="currentColor"/>
+                  </svg>
+                </button>
                 <button 
                   v-if="couplet.verseId && authStore.isAuthenticated.value"
                   @click="toggleLikeVerse(couplet.verseId)"
@@ -69,10 +93,26 @@
                     class="poetry-line"
                     :class="{ 
                       highlighted: getCoupletText(couplet, 0) && searchQuery && getCoupletText(couplet, 0).includes(searchQuery),
-                      'liked-verse': isVerseLiked(getCoupletVerseId(couplet, 0))
+                      'liked-verse': isVerseLiked(getCoupletVerseId(couplet, 0)),
+                      'has-voice-note': hasVoiceNote(getCoupletVerseId(couplet, 0)),
+                      'clickable': authStore.isAuthenticated.value
                     }"
+                    @click="handleVerseClick(getCoupletVerseId(couplet, 0))"
                     v-html="highlightSearchQuery(getCoupletText(couplet, 0) || '')"
                   ></div>
+                  <button 
+                    v-if="hasVoiceNote(getCoupletVerseId(couplet, 0))"
+                    @click.stop="playVoiceNote(getCoupletVerseId(couplet, 0))"
+                    class="play-voice-btn"
+                    :title="isPlayingVoice(getCoupletVerseId(couplet, 0)) ? 'توقف' : 'پخش'"
+                  >
+                    <svg v-if="!isPlayingVoice(getCoupletVerseId(couplet, 0))" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
+                    </svg>
+                    <svg v-else viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M6 4H10V20H6V4ZM14 4H18V20H14V4Z" fill="currentColor"/>
+                    </svg>
+                  </button>
                   <button 
                     v-if="getCoupletVerseId(couplet, 0) && authStore.isAuthenticated.value"
                     @click="toggleLikeVerse(getCoupletVerseId(couplet, 0))"
@@ -92,10 +132,26 @@
                     class="poetry-line"
                     :class="{ 
                       highlighted: getCoupletText(couplet, 1) && searchQuery && getCoupletText(couplet, 1).includes(searchQuery),
-                      'liked-verse': isVerseLiked(getCoupletVerseId(couplet, 1))
+                      'liked-verse': isVerseLiked(getCoupletVerseId(couplet, 1)),
+                      'has-voice-note': hasVoiceNote(getCoupletVerseId(couplet, 1)),
+                      'clickable': authStore.isAuthenticated.value
                     }"
+                    @click="handleVerseClick(getCoupletVerseId(couplet, 1))"
                     v-html="highlightSearchQuery(getCoupletText(couplet, 1) || '')"
                   ></div>
+                  <button 
+                    v-if="hasVoiceNote(getCoupletVerseId(couplet, 1))"
+                    @click.stop="playVoiceNote(getCoupletVerseId(couplet, 1))"
+                    class="play-voice-btn"
+                    :title="isPlayingVoice(getCoupletVerseId(couplet, 1)) ? 'توقف' : 'پخش'"
+                  >
+                    <svg v-if="!isPlayingVoice(getCoupletVerseId(couplet, 1))" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
+                    </svg>
+                    <svg v-else viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M6 4H10V20H6V4ZM14 4H18V20H14V4Z" fill="currentColor"/>
+                    </svg>
+                  </button>
                   <button 
                     v-if="getCoupletVerseId(couplet, 1) && authStore.isAuthenticated.value"
                     @click="toggleLikeVerse(getCoupletVerseId(couplet, 1))"
@@ -127,10 +183,26 @@
                   class="poetry-line"
                   :class="{ 
                     highlighted: couplet.text && searchQuery && couplet.text.includes(searchQuery),
-                    'liked-verse': isVerseLiked(couplet.verseId)
+                    'liked-verse': isVerseLiked(couplet.verseId),
+                    'has-voice-note': hasVoiceNote(couplet.verseId),
+                    'clickable': authStore.isAuthenticated.value
                   }"
+                  @click="handleVerseClick(couplet.verseId)"
                   v-html="highlightSearchQuery(couplet.text || '')"
                 ></div>
+                <button 
+                  v-if="hasVoiceNote(couplet.verseId)"
+                  @click.stop="playVoiceNote(couplet.verseId)"
+                  class="play-voice-btn"
+                  :title="isPlayingVoice(couplet.verseId) ? 'توقف' : 'پخش'"
+                >
+                  <svg v-if="!isPlayingVoice(couplet.verseId)" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 4H10V20H6V4ZM14 4H18V20H14V4Z" fill="currentColor"/>
+                  </svg>
+                </button>
                 <button 
                   v-if="couplet.verseId && authStore.isAuthenticated.value"
                   @click="toggleLikeVerse(couplet.verseId)"
@@ -149,9 +221,27 @@
               <div class="poetry-line-wrapper">
                 <div 
                   class="poetry-line"
-                  :class="{ highlighted: getCoupletText(couplet, 0) && searchQuery && getCoupletText(couplet, 0).includes(searchQuery) }"
+                  :class="{ 
+                    highlighted: getCoupletText(couplet, 0) && searchQuery && getCoupletText(couplet, 0).includes(searchQuery),
+                    'has-voice-note': hasVoiceNote(getCoupletVerseId(couplet, 0)),
+                    'clickable': authStore.isAuthenticated.value
+                  }"
+                  @click="handleVerseClick(getCoupletVerseId(couplet, 0))"
                   v-html="highlightSearchQuery(getCoupletText(couplet, 0) || '')"
                 ></div>
+                <button 
+                  v-if="hasVoiceNote(getCoupletVerseId(couplet, 0))"
+                  @click.stop="playVoiceNote(getCoupletVerseId(couplet, 0))"
+                  class="play-voice-btn"
+                  :title="isPlayingVoice(getCoupletVerseId(couplet, 0)) ? 'توقف' : 'پخش'"
+                >
+                  <svg v-if="!isPlayingVoice(getCoupletVerseId(couplet, 0))" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 4H10V20H6V4ZM14 4H18V20H14V4Z" fill="currentColor"/>
+                  </svg>
+                </button>
                 <button 
                   v-if="getCoupletVerseId(couplet, 0)"
                   @click="toggleLikeVerse(getCoupletVerseId(couplet, 0))"
@@ -167,9 +257,27 @@
               <div class="poetry-line-wrapper">
                 <div 
                   class="poetry-line"
-                  :class="{ highlighted: getCoupletText(couplet, 1) && searchQuery && getCoupletText(couplet, 1).includes(searchQuery) }"
+                  :class="{ 
+                    highlighted: getCoupletText(couplet, 1) && searchQuery && getCoupletText(couplet, 1).includes(searchQuery),
+                    'has-voice-note': hasVoiceNote(getCoupletVerseId(couplet, 1)),
+                    'clickable': authStore.isAuthenticated.value
+                  }"
+                  @click="handleVerseClick(getCoupletVerseId(couplet, 1))"
                   v-html="highlightSearchQuery(getCoupletText(couplet, 1) || '')"
                 ></div>
+                <button 
+                  v-if="hasVoiceNote(getCoupletVerseId(couplet, 1))"
+                  @click.stop="playVoiceNote(getCoupletVerseId(couplet, 1))"
+                  class="play-voice-btn"
+                  :title="isPlayingVoice(getCoupletVerseId(couplet, 1)) ? 'توقف' : 'پخش'"
+                >
+                  <svg v-if="!isPlayingVoice(getCoupletVerseId(couplet, 1))" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 4H10V20H6V4ZM14 4H18V20H14V4Z" fill="currentColor"/>
+                  </svg>
+                </button>
                 <button 
                   v-if="getCoupletVerseId(couplet, 1)"
                   @click="toggleLikeVerse(getCoupletVerseId(couplet, 1))"
@@ -218,6 +326,7 @@ import { ApiService } from '../services/api.js'
 import { useSearchStore } from '../stores/search.js'
 import { useAuthStore } from '../stores/auth.js'
 import { LikedVersesManager } from '../utils/likedVersesManager.js'
+import NoteModal from '../components/NoteModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -227,6 +336,11 @@ const authStore = useAuthStore()
 const poem = ref(null)
 const loading = ref(false)
 const error = ref(null)
+const isNoteModalOpen = ref(false)
+const selectedVerseId = ref(null)
+const verseNotes = ref({}) // Map of verseId -> notes array
+const playingVoiceNote = ref(null) // Currently playing voice note verseId
+const audioPlayer = ref(null) // Audio element for voice playback
 
 // Get search query from store for highlighting
 const searchQuery = computed(() => searchStore.searchQuery)
@@ -398,8 +512,134 @@ const highlightSearchQuery = (text) => {
   return text.replace(regex, '<strong>$1</strong>')
 }
 
-onMounted(() => {
-  loadPoem()
+// Handle verse click to open note modal
+const handleVerseClick = (verseId) => {
+  if (!verseId || !authStore.isAuthenticated.value) return
+  selectedVerseId.value = verseId
+  isNoteModalOpen.value = true
+}
+
+// Close note modal
+const closeNoteModal = () => {
+  isNoteModalOpen.value = false
+  selectedVerseId.value = null
+}
+
+// Handle note created
+const handleNoteCreated = async (note) => {
+  // Reload notes for the verse
+  if (selectedVerseId.value) {
+    await loadNotesForVerse(selectedVerseId.value)
+  }
+}
+
+// Load notes for a specific verse
+const loadNotesForVerse = async (verseId) => {
+  if (!verseId || !authStore.isAuthenticated.value) return
+  
+  try {
+    const notes = await ApiService.getNotesByVerse(verseId)
+    verseNotes.value[verseId] = notes || []
+  } catch (err) {
+    console.error('Error loading notes for verse:', err)
+    verseNotes.value[verseId] = []
+  }
+}
+
+// Load notes for all verses in the poem
+const loadAllVerseNotes = async () => {
+  if (!poem.value || !authStore.isAuthenticated.value) return
+  
+  try {
+    // Get all verse IDs from the poem
+    const verseIds = []
+    if (poem.value.couplets) {
+      poem.value.couplets.forEach(couplet => {
+        if (couplet.fullWidth && couplet.verseId) {
+          verseIds.push(couplet.verseId)
+        } else if (couplet.verseIds && Array.isArray(couplet.verseIds)) {
+          couplet.verseIds.forEach(id => {
+            if (id) verseIds.push(id)
+          })
+        }
+      })
+    }
+    
+    // Load notes for all verses
+    for (const verseId of verseIds) {
+      await loadNotesForVerse(verseId)
+    }
+  } catch (err) {
+    console.error('Error loading verse notes:', err)
+  }
+}
+
+// Check if verse has voice note
+const hasVoiceNote = (verseId) => {
+  if (!verseId) return false
+  const notes = verseNotes.value[verseId] || []
+  return notes.some(note => note.file_type === 'voice' && note.file_url)
+}
+
+// Check if voice note is currently playing
+const isPlayingVoice = (verseId) => {
+  return playingVoiceNote.value === verseId
+}
+
+// Play voice note
+const playVoiceNote = async (verseId) => {
+  if (!verseId) return
+  
+  const notes = verseNotes.value[verseId] || []
+  const voiceNote = notes.find(note => note.file_type === 'voice' && note.file_url)
+  
+  if (!voiceNote || !voiceNote.file_url) return
+  
+  // If already playing this verse, pause it
+  if (playingVoiceNote.value === verseId && audioPlayer.value) {
+    audioPlayer.value.pause()
+    playingVoiceNote.value = null
+    audioPlayer.value = null
+    return
+  }
+  
+  // Stop any currently playing audio
+  if (audioPlayer.value) {
+    audioPlayer.value.pause()
+    audioPlayer.value = null
+  }
+  
+  // Create and play new audio
+  const audio = new Audio(voiceNote.file_url)
+  audioPlayer.value = audio
+  playingVoiceNote.value = verseId
+  
+  audio.onended = () => {
+    playingVoiceNote.value = null
+    audioPlayer.value = null
+  }
+  
+  audio.onerror = () => {
+    console.error('Error playing voice note:', voiceNote.file_url)
+    playingVoiceNote.value = null
+    audioPlayer.value = null
+  }
+  
+  try {
+    await audio.play()
+  } catch (err) {
+    console.error('Error playing audio:', err)
+    playingVoiceNote.value = null
+    audioPlayer.value = null
+  }
+}
+
+onMounted(async () => {
+  await loadPoem()
+  // Load notes after poem is loaded
+  if (authStore.isAuthenticated.value) {
+    await loadAllVerseNotes()
+  }
 })
 </script>
 
@@ -592,6 +832,14 @@ onMounted(() => {
   border-radius: 4px;
 }
 
+.poetry-line.clickable {
+  cursor: pointer;
+}
+
+.poetry-line.has-voice-note {
+  padding-right: 45px;
+}
+
 .poetry-line.highlighted {
   background: rgba(112, 38, 50, 0.2);
   border: 1px solid #702632;
@@ -693,6 +941,32 @@ onMounted(() => {
 .like-button svg {
   width: 18px;
   height: 18px;
+}
+
+.play-voice-btn {
+  background: transparent;
+  border: 1px solid #702632;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #702632;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.play-voice-btn:hover {
+  background: rgba(112, 38, 50, 0.2);
+  transform: scale(1.1);
+}
+
+.play-voice-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Mobile Styles */

@@ -1429,6 +1429,419 @@ export class ApiService {
     }
   }
 
+  // Create a note
+  static async createNote(noteData) {
+    try {
+      console.log('📝 Creating new note...')
+      console.log('📝 Note data:', noteData)
+      
+      // Prepare the payload for the API
+      const payload = {
+        title: noteData.title?.trim() || '',
+        text: noteData.text?.trim() || '',
+        tags: noteData.tags || [],
+        writer: noteData.writer?.trim() || '',
+        related_verse_id: noteData.related_verse_id || null,
+        file_url: noteData.file_url || null,
+        file_type: noteData.file_type || null
+      }
+      
+      // Remove null/empty fields, but always keep text field (even if empty)
+      // This ensures the API receives the text field
+      Object.keys(payload).forEach(key => {
+        if (key === 'text') {
+          // Always include text field, even if empty string
+          if (payload[key] === null) {
+            payload[key] = ''
+          }
+        } else if (payload[key] === null || payload[key] === '') {
+          delete payload[key]
+        }
+      })
+      
+      const url = `${API_BASE_URL}/notes`
+      console.log('📤 Create note URL:', url)
+      console.log('📤 Request payload:', JSON.stringify(payload, null, 2))
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: JSON.stringify(payload),
+        mode: 'cors',
+        redirect: 'follow'
+      })
+      
+      console.log('📥 Create note response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      })
+      
+      if (!response.ok) {
+        await handleApiError(response, 'Create Note')
+      }
+      
+      const result = await response.json()
+      console.log('✅ Note created successfully:', result)
+      
+      return result
+      
+    } catch (error) {
+      console.error('❌ Failed to create note:', error)
+      throw error
+    }
+  }
+
+  // Get user's notes
+  static async getNotes(options = {}) {
+    try {
+      console.log('📝 Fetching user notes...')
+      
+      const { limit = 20, offset = 0 } = options
+      const url = `${API_BASE_URL}/notes?limit=${limit}&offset=${offset}`
+      
+      console.log('📤 Request URL:', url)
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getDefaultHeaders(),
+        mode: 'cors',
+        redirect: 'follow'
+      })
+      
+      console.log('📥 Notes response:', {
+        status: response.status,
+        ok: response.ok
+      })
+      
+      if (!response.ok) {
+        await handleApiError(response, 'Get Notes')
+      }
+      
+      const result = await response.json()
+      console.log('✅ Notes fetched:', {
+        total: result.total,
+        notesCount: result.notes?.length || result.length || 0
+      })
+      
+      return result
+      
+    } catch (error) {
+      console.error('❌ Failed to get notes:', error)
+      throw error
+    }
+  }
+
+  // Get liked verses with notes
+  static async getLikedVersesWithNotes(options = {}) {
+    try {
+      console.log('📖 Fetching liked verses with notes...')
+      
+      const { limit = 20, offset = 0 } = options
+      const url = `${API_BASE_URL}/notes/liked-verses?limit=${limit}&offset=${offset}`
+      
+      console.log('📤 Request URL:', url)
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getDefaultHeaders(),
+        mode: 'cors',
+        redirect: 'follow'
+      })
+      
+      console.log('📥 Liked verses with notes response:', {
+        status: response.status,
+        ok: response.ok
+      })
+      
+      if (!response.ok) {
+        await handleApiError(response, 'Get Liked Verses With Notes')
+      }
+      
+      const result = await response.json()
+      console.log('✅ Liked verses with notes fetched:', result)
+      
+      return result
+      
+    } catch (error) {
+      console.error('❌ Failed to get liked verses with notes:', error)
+      throw error
+    }
+  }
+
+  // Get notes by verse ID (filter from all notes)
+  static async getNotesByVerse(verseId) {
+    try {
+      console.log('📝 Fetching notes for verse:', verseId)
+      
+      // Fetch all notes and filter by verse ID
+      const allNotes = await this.getNotes({ limit: 1000, offset: 0 })
+      
+      // Handle different response structures
+      const notes = Array.isArray(allNotes) ? allNotes : (allNotes.notes || [])
+      
+      const verseNotes = notes.filter(note => 
+        note.related_verse_id === verseId || note.related_verse_id === parseInt(verseId)
+      )
+      
+      console.log('✅ Found', verseNotes.length, 'notes for verse', verseId)
+      
+      return verseNotes
+      
+    } catch (error) {
+      console.error('❌ Failed to get notes by verse:', error)
+      throw error
+    }
+  }
+
+  // Get verse details by verse ID
+  // Note: The note API response includes a `verses` array, so we can extract verse info from there
+  // This method is a fallback when we don't have note data
+  static async getVerseDetails(verseId, noteData = null) {
+    try {
+      console.log('📖 Fetching verse details:', verseId)
+      
+      // Try direct verse endpoint first to get complete verse info with poem/poet data
+      try {
+        const response = await fetch(`${API_BASE_URL}/verses/${verseId}`, {
+          method: 'GET',
+          headers: getDefaultHeaders(),
+          mode: 'cors',
+          redirect: 'follow'
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          console.log('✅ Verse details fetched from endpoint:', result)
+          return result
+        }
+      } catch (e) {
+        console.log('Direct verse endpoint not available, trying alternative method')
+      }
+      
+      // Alternative: Try /verse/{verse_id} endpoint
+      try {
+        const response = await fetch(`${API_BASE_URL}/verse/${verseId}`, {
+          method: 'GET',
+          headers: getDefaultHeaders(),
+          mode: 'cors',
+          redirect: 'follow'
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          console.log('✅ Verse details fetched from alternative endpoint:', result)
+          return result
+        }
+      } catch (e) {
+        console.log('Alternative verse endpoint not available')
+      }
+      
+      // If we have note data with verses array, extract verse info from there
+      if (noteData && noteData.verses && Array.isArray(noteData.verses)) {
+        // Try to find verse matching related_verse_id, or use first verse if available
+        let verse = noteData.verses.find(v => v.id === verseId || v.id === parseInt(verseId))
+        
+        // If not found by ID, use first verse in array (API might return the related verse)
+        if (!verse && noteData.verses.length > 0) {
+          verse = noteData.verses[0]
+          console.log('⚠️ Verse ID not found in verses array, using first verse:', verse)
+        }
+        
+        if (verse) {
+          console.log('✅ Verse found in note data:', verse)
+          // Ensure we use verse.text (not note.text) for verse text
+          const verseText = verse.text || verse.verse_text || ''
+          
+          // Try to get poem info from verse or note data
+          const poemId = verse.poem_id || noteData.poem_id || null
+          let poemTitle = verse.poem_title || verse.poem_name || noteData.poem_title || noteData.poem_name || null
+          let poetId = verse.poet_id || noteData.poet_id || null
+          let poetName = verse.poet_name || verse.poet || noteData.poet_name || noteData.poet || null
+          
+          // If we have poem_id but missing poem/poet info, try to fetch from poem endpoint
+          if (poemId && (!poemTitle || !poetName)) {
+            try {
+              const poemData = await this.getFullPoem(poemId)
+              if (poemData) {
+                poemTitle = poemTitle || poemData.title || poemData.name || null
+                poetId = poetId || poemData.poet_id || null
+                poetName = poetName || poemData.poet_name || poemData.poet?.name || null
+              }
+            } catch (e) {
+              console.log('Could not fetch poem details:', e)
+            }
+          }
+          
+          return {
+            id: verse.id,
+            text: verseText, // Use verse.text, not note.text
+            verse_text: verseText,
+            vorder: verse.vorder,
+            poem_id: poemId,
+            poem_title: poemTitle,
+            poet_id: poetId,
+            poet_name: poetName
+          }
+        }
+      }
+      
+      // If we have note data but verse not found in verses array, return partial info
+      if (noteData) {
+        console.log('⚠️ Verse not found in note verses array, returning partial info')
+        return {
+          id: verseId,
+          text: null,
+          verse_text: null,
+          poem_id: noteData.poem_id || null,
+          poem_title: noteData.poem_title || noteData.poem_name || null,
+          poet_id: noteData.poet_id || null,
+          poet_name: noteData.poet_name || noteData.poet || null
+        }
+      }
+      
+      // If no direct endpoint and no note data, we can't get verse info
+      throw new Error('Verse endpoint not found and no note data provided. Cannot fetch verse details.')
+      
+    } catch (error) {
+      console.error('❌ Failed to get verse details:', error)
+      throw error
+    }
+  }
+
+  // Get a specific note by ID
+  static async getNote(noteId) {
+    try {
+      console.log('📝 Fetching note:', noteId)
+      
+      const response = await fetch(`${API_BASE_URL}/notes/${noteId}`, {
+        method: 'GET',
+        headers: getDefaultHeaders(),
+        mode: 'cors',
+        redirect: 'follow'
+      })
+      
+      console.log('📥 Note response:', {
+        status: response.status,
+        ok: response.ok
+      })
+      
+      if (!response.ok) {
+        await handleApiError(response, 'Get Note')
+      }
+      
+      const result = await response.json()
+      console.log('✅ Note fetched:', result)
+      
+      return result
+      
+    } catch (error) {
+      console.error('❌ Failed to get note:', error)
+      throw error
+    }
+  }
+
+  // Delete a note
+  static async deleteNote(noteId) {
+    try {
+      console.log('🗑️ Deleting note:', noteId)
+      
+      const response = await fetch(`${API_BASE_URL}/notes/${noteId}`, {
+        method: 'DELETE',
+        headers: getDefaultHeaders(),
+        mode: 'cors',
+        redirect: 'follow'
+      })
+      
+      console.log('📥 Delete note response:', {
+        status: response.status,
+        ok: response.ok
+      })
+      
+      if (!response.ok) {
+        await handleApiError(response, 'Delete Note')
+      }
+      
+      // DELETE might return 204 No Content
+      if (response.status === 204) {
+        console.log('✅ Note deleted successfully (204 No Content)')
+        return true
+      }
+      
+      // Try to parse response if there is one
+      try {
+        const result = await response.json()
+        console.log('✅ Note deleted successfully:', result)
+        return result
+      } catch (e) {
+        // No content to parse, which is fine for DELETE
+        console.log('✅ Note deleted successfully (no response body)')
+        return true
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to delete note:', error)
+      throw error
+    }
+  }
+
+  // Update a note
+  static async updateNote(noteId, noteData) {
+    try {
+      console.log('✏️ Updating note:', noteId)
+      console.log('📝 Note data:', noteData)
+      
+      // Prepare the payload for the API
+      const payload = {
+        title: noteData.title?.trim() || '',
+        text: noteData.text?.trim() || '',
+        tags: noteData.tags || [],
+        writer: noteData.writer?.trim() || '',
+        related_verse_id: noteData.related_verse_id || null,
+        file_url: noteData.file_url || null,
+        file_type: noteData.file_type || null
+      }
+      
+      // Remove null/empty fields
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === null || payload[key] === '') {
+          delete payload[key]
+        }
+      })
+      
+      const url = `${API_BASE_URL}/notes/${noteId}`
+      console.log('📤 Update note URL:', url)
+      console.log('📤 Request payload:', JSON.stringify(payload, null, 2))
+      
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: getDefaultHeaders(),
+        body: JSON.stringify(payload),
+        mode: 'cors',
+        redirect: 'follow'
+      })
+      
+      console.log('📥 Update note response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      })
+      
+      if (!response.ok) {
+        await handleApiError(response, 'Update Note')
+      }
+      
+      const result = await response.json()
+      console.log('✅ Note updated successfully:', result)
+      
+      return result
+      
+    } catch (error) {
+      console.error('❌ Failed to update note:', error)
+      throw error
+    }
+  }
+
   // Debug method to test API endpoints
   static async testAuthEndpoints() {
     console.log('=== Testing Auth Endpoints ===')
