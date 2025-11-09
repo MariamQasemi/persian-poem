@@ -68,6 +68,10 @@ const routes = [
     component: PoemDetailPage,
     props: true,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
   }
 ]
 
@@ -78,47 +82,50 @@ const router = createRouter({
 
 // Navigation guards
 router.beforeEach((to, from, next) => {
-  // More robust authentication check
-  const hasToken = !!CookieManager.getToken()
-  const hasUserData = !!CookieManager.getUserData()
-  const isAuthenticated = hasToken && hasUserData
-  
-  console.log('🛡️ Route guard check:', {
-    to: to.path,
-    from: from.path,
-    hasToken,
-    hasUserData,
-    isAuthenticated,
-    requiresAuth: to.meta.requiresAuth,
-    requiresGuest: to.meta.requiresGuest,
-    cookieToken: !!CookieManager.getToken(),
-    cookieUser: !!CookieManager.getUserData(),
-    documentCookie: document.cookie
-  })
-  
-  // Allow navigation if user is being redirected from login
-  if (from.path === '/login' && isAuthenticated) {
-    console.log('✅ Allowing redirect from login with auth')
+  try {
+    // More robust authentication check
+    const hasToken = !!CookieManager.getToken()
+    const hasUserData = !!CookieManager.getUserData()
+    const isAuthenticated = hasToken && hasUserData
+    
+    console.log('🛡️ Route guard check:', {
+      to: to.path,
+      from: from.path,
+      hasToken,
+      hasUserData,
+      isAuthenticated,
+      requiresAuth: to.meta.requiresAuth,
+      requiresGuest: to.meta.requiresGuest
+    })
+    
+    // Allow navigation if user is being redirected from login
+    if (from.path === '/login' && isAuthenticated) {
+      console.log('✅ Allowing redirect from login with auth')
+      next()
+      return
+    }
+    
+    // Check if route requires authentication
+    if (to.meta.requiresAuth && !isAuthenticated) {
+      console.log('🚫 Redirecting to login - authentication required')
+      next('/login')
+      return
+    }
+    
+    // Check if route requires guest (not authenticated)
+    if (to.meta.requiresGuest && isAuthenticated) {
+      console.log('🚫 Redirecting to home - already authenticated')
+      next('/')
+      return
+    }
+    
+    console.log('✅ Route access allowed')
     next()
-    return
-  }
-  
-  // Check if route requires authentication
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    console.log('🚫 Redirecting to login - authentication required')
+  } catch (error) {
+    console.error('❌ Error in route guard:', error)
+    // On error, redirect to login to be safe
     next('/login')
-    return
   }
-  
-  // Check if route requires guest (not authenticated)
-  if (to.meta.requiresGuest && isAuthenticated) {
-    console.log('🚫 Redirecting to home - already authenticated')
-    next('/')
-    return
-  }
-  
-  console.log('✅ Route access allowed')
-  next()
 })
 
 export default router
