@@ -29,7 +29,6 @@
             <h1 class="note-title">{{ note.title }}</h1>
             <div class="note-meta">
               <span class="note-writer">{{ note.writer || 'نویسنده نامشخص' }}</span>
-              <span class="note-date">{{ formatDate(note.created_at) }}</span>
               <span v-if="note.tags && note.tags.length > 0" class="note-tags">
                 <span v-for="tag in note.tags" :key="tag" class="tag">{{ tag }}</span>
               </span>
@@ -240,7 +239,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { ApiService } from '../services/api.js'
 import { useAuthStore } from '../stores/auth.js'
 import { getVerseInfo, setVerseInfo } from '../utils/verseCache.js'
-import { formatPersianDate } from '../utils/dateFormatter.js'
 import Navbar from '../components/Navbar.vue'
 
 const route = useRoute()
@@ -564,11 +562,6 @@ const handleUpdateNote = async () => {
   } finally {
     isSubmitting.value = false
   }
-}
-
-const formatDate = (iso) => {
-  if (!iso) return '—'
-  return formatPersianDate(iso)
 }
 
 const formatContent = (content) => {

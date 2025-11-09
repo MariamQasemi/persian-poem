@@ -85,7 +85,6 @@
                 </button>
               </div>
               <div class="post-meta">
-                <span class="post-date">{{ formatDate(post.created_at) }}</span>
                 <span class="post-author">{{ post.author || post.author_name || 'نویسنده نامشخص' }}</span>
                 <span v-if="post.published === false" class="post-status draft">پیش‌نویس</span>
               </div>
@@ -116,7 +115,6 @@
                 </button>
               </div>
               <div class="post-meta">
-                <span class="post-date">{{ formatDate(note.created_at) }}</span>
                 <span class="post-author">{{ note.writer || 'نویسنده نامشخص' }}</span>
               </div>
               
@@ -172,7 +170,6 @@ import PostModal from '../components/PostModal.vue'
 import { ApiService } from '../services/api.js'
 import { useAuthStore } from '../stores/auth.js'
 import { getVerseInfo, setVerseInfo } from '../utils/verseCache.js'
-import { formatPersianDate } from '../utils/dateFormatter.js'
 
 const posts = ref([])
 const notes = ref([])
@@ -187,11 +184,6 @@ const expandedVerses = ref({})
 
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.currentUser?.value || {})
-
-const formatDate = (iso) => {
-  if (!iso) return '—'
-  return formatPersianDate(iso)
-}
 
 async function loadPosts() {
   try {
@@ -324,23 +316,11 @@ const filteredItems = computed(() => {
   const allItems = [...posts.value, ...notes.value]
   
   if (activeFilter.value === 'all') {
-    return allItems.sort((a, b) => {
-      const dateA = new Date(a.created_at || 0)
-      const dateB = new Date(b.created_at || 0)
-      return dateB - dateA
-    })
+    return allItems
   } else if (activeFilter.value === 'posts') {
-    return posts.value.sort((a, b) => {
-      const dateA = new Date(a.created_at || 0)
-      const dateB = new Date(b.created_at || 0)
-      return dateB - dateA
-    })
+    return posts.value
   } else if (activeFilter.value === 'notes') {
-    return notes.value.sort((a, b) => {
-      const dateA = new Date(a.created_at || 0)
-      const dateB = new Date(b.created_at || 0)
-      return dateB - dateA
-    })
+    return notes.value
   }
   
   return []

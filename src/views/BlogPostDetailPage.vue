@@ -29,7 +29,6 @@
             <h1 class="post-title">{{ post.title }}</h1>
             <div class="post-meta">
               <span class="post-author">{{ post.author_username || post.author_name || 'نویسنده نامشخص' }}</span>
-              <span class="post-date">{{ formatDate(post.created_at) }}</span>
               <span v-if="post.tags && post.tags.length > 0" class="post-tags">
                 <span v-for="tag in post.tags" :key="tag" class="tag">{{ tag }}</span>
               </span>
@@ -96,7 +95,6 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiService } from '../services/api.js'
 import { useAuthStore } from '../stores/auth.js'
-import { formatPersianDate } from '../utils/dateFormatter.js'
 import Navbar from '../components/Navbar.vue'
 
 const route = useRoute()
@@ -212,11 +210,6 @@ const handleDelete = async () => {
   } finally {
     isDeleting.value = false
   }
-}
-
-const formatDate = (iso) => {
-  if (!iso) return '—'
-  return formatPersianDate(iso)
 }
 
 const formatContent = (content) => {

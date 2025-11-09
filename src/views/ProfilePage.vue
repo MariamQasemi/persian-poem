@@ -32,10 +32,6 @@
               <span class="info-label">ایمیل:</span>
               <span class="info-value">{{ userData.email || 'تعریف نشده' }}</span>
             </div>
-            <div class="info-item">
-              <span class="info-label">تاریخ عضویت:</span>
-              <span class="info-value">{{ formatDate(userData.created_at) }}</span>
-            </div>
           </div>
 
           <!-- Edit Mode -->
@@ -219,7 +215,6 @@ import { ApiService } from '../services/api.js'
 import { CookieManager } from '../utils/cookieManager.js'
 import { useAuthStore } from '../stores/auth.js'
 import { LikedVersesManager } from '../utils/likedVersesManager.js'
-import { formatPersianDate } from '../utils/dateFormatter.js'
 import Navbar from '../components/Navbar.vue'
 
 const router = useRouter()
@@ -317,11 +312,6 @@ const loadUserData = async () => {
     console.log('No user data found, redirecting to login')
     router.push('/login')
   }
-}
-
-const formatDate = (dateString) => {
-  if (!dateString) return 'نامشخص'
-  return formatPersianDate(dateString)
 }
 
 const loadUsers = async () => {
