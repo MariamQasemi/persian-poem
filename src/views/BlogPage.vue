@@ -157,7 +157,9 @@
                 </div>
               </div>
               
-              <p class="post-excerpt">{{ (note.text || note.content) ? ((note.text || note.content).length > 150 ? (note.text || note.content).substring(0, 150) + '...' : (note.text || note.content)) : '' }}</p>
+              <p class="post-excerpt">
+                {{ note.text ? (note.text.length > 150 ? note.text.substring(0, 150) + '...' : note.text) : '' }}
+              </p>
               <div v-if="note.file_url && note.file_type === 'image'" class="note-image-preview">
                 <img :src="note.file_url" alt="Note image" />
               </div>
@@ -228,7 +230,10 @@ async function loadNotes() {
     const notesArray = Array.isArray(result) ? result : (result.notes || [])
     notes.value = await Promise.all(notesArray.map(async (note) => {
       // Ensure text field exists, handle both text and content field names
-      const noteText = note.text !== undefined ? note.text : (note.content !== undefined ? note.content : '')
+      const versesArray = Array.isArray(note.verses) ? note.verses : []
+      const verseTextFallback = versesArray.length > 0 ? versesArray.map(v => v.text).join('\n').trim() : ''
+      const noteTextRaw = note.text !== undefined ? note.text : (note.content !== undefined ? note.content : '')
+      const noteText = noteTextRaw && noteTextRaw.trim() ? noteTextRaw : verseTextFallback
       const noteObj = { 
         ...note, 
         type: 'note',

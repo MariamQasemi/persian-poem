@@ -226,8 +226,8 @@
           </div>
 
           <!-- Note Body - Display note text here -->
-          <div v-if="note && (note.text || note.content)" class="note-body" @dblclick.stop="handleDoubleClick" v-html="formatContent(note.text || note.content)"></div>
-          <div v-else-if="note" class="note-body empty-text">این یادداشت متن ندارد</div>
+          <div v-if="note" class="note-body" @dblclick.stop="handleDoubleClick" v-html="formatContent(getNoteText())"></div>
+          <div v-else class="note-body empty-text">این یادداشت متن ندارد</div>
           
           <!-- Note Image -->
           <div v-if="note.file_url && note.file_type === 'image'" class="note-image">
@@ -674,7 +674,7 @@ const getVerseText = (verseInfo) => {
   if (!verseInfo) return ''
   
   const verseText = verseInfo.verse_text || verseInfo.text || ''
-  const noteText = note.value?.text || note.value?.content || ''
+  const noteText = getNoteText()
   
   // Safety check: if verse text matches note text, return empty (it's wrong)
   if (verseText && noteText && verseText === noteText) {
@@ -683,6 +683,18 @@ const getVerseText = (verseInfo) => {
   }
   
   return verseText
+}
+
+const getNoteText = () => {
+  const text = note.value?.text || note.value?.content || ''
+  if (text && text.trim()) {
+    return text
+  }
+  // Fallback to verses array
+  if (note.value?.verses && Array.isArray(note.value.verses) && note.value.verses.length > 0) {
+    return note.value.verses.map(v => v.text).join('\n').trim()
+  }
+  return ''
 }
 
 const goBack = () => {
