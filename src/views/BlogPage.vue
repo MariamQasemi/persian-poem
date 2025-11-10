@@ -16,6 +16,17 @@
       @close="closePostModal"
       @created="handlePostCreated"
     />
+    
+    <!-- Word Selection Popup -->
+    <WordSelectionPopup
+      :isVisible="isWordPopupVisible"
+      :selectedWord="selectedWord"
+      :position="popupPosition"
+      :verseId="null"
+      :isAuthenticated="false"
+      @vajehyab="handleVajehyab"
+      @close="closeWordPopup"
+    />
 
     <div class="blog-container">
       <div class="blog-header">
@@ -141,7 +152,7 @@
                   </div>
                   <div class="verse-context-item">
                     <strong>بیت:</strong>
-                    <div class="verse-text">{{ note.verseInfo.verse_text || note.verseInfo.text || 'متن بیت در دسترس نیست' }}</div>
+                    <div class="verse-text" @dblclick.stop="handleDoubleClick">{{ note.verseInfo.verse_text || note.verseInfo.text || 'متن بیت در دسترس نیست' }}</div>
                   </div>
                 </div>
               </div>
@@ -170,6 +181,8 @@ import PostModal from '../components/PostModal.vue'
 import { ApiService } from '../services/api.js'
 import { useAuthStore } from '../stores/auth.js'
 import { getVerseInfo, setVerseInfo } from '../utils/verseCache.js'
+import WordSelectionPopup from '../components/WordSelectionPopup.vue'
+import { handleDoubleClick as handleDoubleClickUtil, redirectToVajehyab } from '../utils/wordSelection.js'
 
 const posts = ref([])
 const notes = ref([])
@@ -181,6 +194,11 @@ const activeFilter = ref('all')
 const isNoteModalOpen = ref(false)
 const isPostModalOpen = ref(false)
 const expandedVerses = ref({})
+
+// Word selection popup state
+const isWordPopupVisible = ref(false)
+const selectedWord = ref('')
+const popupPosition = ref({ x: 0, y: 0 })
 
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.currentUser?.value || {})
@@ -380,6 +398,31 @@ async function handleDeletePost(postId) {
     isDeleting.value = null
     setTimeout(() => { submitSuccess.value = '' }, 2000)
   }
+}
+
+// Handle double-click for word selection
+const handleDoubleClick = (event) => {
+  const result = handleDoubleClickUtil(event)
+  
+  if (!result || !result.selectedWord) {
+    return
+  }
+  
+  selectedWord.value = result.selectedWord
+  popupPosition.value = result.position
+  isWordPopupVisible.value = true
+}
+
+// Handle vajehyab redirect
+const handleVajehyab = (word) => {
+  redirectToVajehyab(word)
+}
+
+// Close word popup
+const closeWordPopup = () => {
+  isWordPopupVisible.value = false
+  selectedWord.value = ''
+  popupPosition.value = { x: 0, y: 0 }
 }
 
 onMounted(async () => {

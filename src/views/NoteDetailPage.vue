@@ -1,6 +1,17 @@
 <template>
   <div class="note-detail-page">
     <Navbar />
+    
+    <!-- Word Selection Popup -->
+    <WordSelectionPopup
+      :isVisible="isWordPopupVisible"
+      :selectedWord="selectedWord"
+      :position="popupPosition"
+      :verseId="null"
+      :isAuthenticated="false"
+      @vajehyab="handleVajehyab"
+      @close="closeWordPopup"
+    />
 
     <div class="note-container">
       <button @click="goBack" class="back-btn">
@@ -203,7 +214,7 @@
               </div>
               <div class="verse-context-item">
                 <strong>بیت:</strong>
-                <div class="verse-text">{{ getVerseText(verseInfo) || 'متن بیت در دسترس نیست' }}</div>
+                <div class="verse-text" @dblclick.stop="handleDoubleClick">{{ getVerseText(verseInfo) || 'متن بیت در دسترس نیست' }}</div>
               </div>
             </div>
           </div>
@@ -215,7 +226,7 @@
           </div>
 
           <!-- Note Body - Display note text here -->
-          <div v-if="note && (note.text || note.content)" class="note-body" v-html="formatContent(note.text || note.content)"></div>
+          <div v-if="note && (note.text || note.content)" class="note-body" @dblclick.stop="handleDoubleClick" v-html="formatContent(note.text || note.content)"></div>
           <div v-else-if="note" class="note-body empty-text">این یادداشت متن ندارد</div>
           
           <!-- Note Image -->
@@ -240,6 +251,8 @@ import { ApiService } from '../services/api.js'
 import { useAuthStore } from '../stores/auth.js'
 import { getVerseInfo, setVerseInfo } from '../utils/verseCache.js'
 import Navbar from '../components/Navbar.vue'
+import WordSelectionPopup from '../components/WordSelectionPopup.vue'
+import { handleDoubleClick as handleDoubleClickUtil, redirectToVajehyab } from '../utils/wordSelection.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -255,6 +268,11 @@ const verseInfo = ref(null)
 const loadingVerseInfo = ref(false)
 const verseError = ref(null)
 const isVerseContextExpanded = ref(false)
+
+// Word selection popup state
+const isWordPopupVisible = ref(false)
+const selectedWord = ref('')
+const popupPosition = ref({ x: 0, y: 0 })
 
 const editForm = ref({
   title: '',
@@ -668,6 +686,31 @@ const getVerseText = (verseInfo) => {
 
 const goBack = () => {
   router.back()
+}
+
+// Handle double-click for word selection
+const handleDoubleClick = (event) => {
+  const result = handleDoubleClickUtil(event)
+  
+  if (!result || !result.selectedWord) {
+    return
+  }
+  
+  selectedWord.value = result.selectedWord
+  popupPosition.value = result.position
+  isWordPopupVisible.value = true
+}
+
+// Handle vajehyab redirect
+const handleVajehyab = (word) => {
+  redirectToVajehyab(word)
+}
+
+// Close word popup
+const closeWordPopup = () => {
+  isWordPopupVisible.value = false
+  selectedWord.value = ''
+  popupPosition.value = { x: 0, y: 0 }
 }
 
 onMounted(() => {

@@ -7,6 +7,18 @@
       @close="closeNoteModal"
       @created="handleNoteCreated"
     />
+    
+    <!-- Word Selection Popup -->
+    <WordSelectionPopup
+      :isVisible="isWordPopupVisible"
+      :selectedWord="selectedWord"
+      :position="popupPosition"
+      :verseId="selectedVerseId"
+      :isAuthenticated="authStore.isAuthenticated.value"
+      @vajehyab="handleVajehyab"
+      @createNote="handleCreateNoteFromPopup"
+      @close="closeWordPopup"
+    />
 
     <!-- Back Button -->
     <button @click="goBack" class="back-btn">
@@ -56,7 +68,8 @@
                     'has-voice-note': hasVoiceNote(couplet.verseId),
                     'clickable': authStore.isAuthenticated.value
                   }"
-                  @click="handleVerseClick(couplet.verseId)"
+                    :data-verse-id="couplet.verseId"
+                    @dblclick.stop="handleDoubleClick"
                   v-html="highlightSearchQuery(couplet.text || '')"
                 ></div>
                 <button 
@@ -97,7 +110,8 @@
                       'has-voice-note': hasVoiceNote(getCoupletVerseId(couplet, 0)),
                       'clickable': authStore.isAuthenticated.value
                     }"
-                    @click="handleVerseClick(getCoupletVerseId(couplet, 0))"
+                    :data-verse-id="getCoupletVerseId(couplet, 0)"
+                    @dblclick.stop="handleDoubleClick"
                     v-html="highlightSearchQuery(getCoupletText(couplet, 0) || '')"
                   ></div>
                   <button 
@@ -136,7 +150,8 @@
                       'has-voice-note': hasVoiceNote(getCoupletVerseId(couplet, 1)),
                       'clickable': authStore.isAuthenticated.value
                     }"
-                    @click="handleVerseClick(getCoupletVerseId(couplet, 1))"
+                    :data-verse-id="getCoupletVerseId(couplet, 1)"
+                    @dblclick.stop="handleDoubleClick"
                     v-html="highlightSearchQuery(getCoupletText(couplet, 1) || '')"
                   ></div>
                   <button 
@@ -187,7 +202,8 @@
                     'has-voice-note': hasVoiceNote(couplet.verseId),
                     'clickable': authStore.isAuthenticated.value
                   }"
-                  @click="handleVerseClick(couplet.verseId)"
+                    :data-verse-id="couplet.verseId"
+                    @dblclick.stop="handleDoubleClick"
                   v-html="highlightSearchQuery(couplet.text || '')"
                 ></div>
                 <button 
@@ -327,6 +343,8 @@ import { useSearchStore } from '../stores/search.js'
 import { useAuthStore } from '../stores/auth.js'
 import { LikedVersesManager } from '../utils/likedVersesManager.js'
 import NoteModal from '../components/NoteModal.vue'
+import WordSelectionPopup from '../components/WordSelectionPopup.vue'
+import { handleDoubleClick as handleDoubleClickUtil, redirectToVajehyab } from '../utils/wordSelection.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -341,6 +359,11 @@ const selectedVerseId = ref(null)
 const verseNotes = ref({}) // Map of verseId -> notes array
 const playingVoiceNote = ref(null) // Currently playing voice note verseId
 const audioPlayer = ref(null) // Audio element for voice playback
+
+// Word selection popup state
+const isWordPopupVisible = ref(false)
+const selectedWord = ref('')
+const popupPosition = ref({ x: 0, y: 0 })
 
 // Get search query from store for highlighting
 const searchQuery = computed(() => searchStore.searchQuery)
@@ -512,11 +535,37 @@ const highlightSearchQuery = (text) => {
   return text.replace(regex, '<strong>$1</strong>')
 }
 
-// Handle verse click to open note modal
-const handleVerseClick = (verseId) => {
+// Handle double-click for word selection
+const handleDoubleClick = (event) => {
+  const result = handleDoubleClickUtil(event)
+  
+  if (!result || !result.selectedWord) {
+    return
+  }
+  
+  selectedWord.value = result.selectedWord
+  popupPosition.value = result.position
+  selectedVerseId.value = result.verseId
+  isWordPopupVisible.value = true
+}
+
+// Handle vajehyab redirect
+const handleVajehyab = (word) => {
+  redirectToVajehyab(word)
+}
+
+// Handle create note from popup
+const handleCreateNoteFromPopup = (verseId) => {
   if (!verseId || !authStore.isAuthenticated.value) return
   selectedVerseId.value = verseId
   isNoteModalOpen.value = true
+}
+
+// Close word popup
+const closeWordPopup = () => {
+  isWordPopupVisible.value = false
+  selectedWord.value = ''
+  popupPosition.value = { x: 0, y: 0 }
 }
 
 // Close note modal

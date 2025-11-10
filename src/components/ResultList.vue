@@ -7,6 +7,18 @@
       @close="closeNoteModal"
       @created="handleNoteCreated"
     />
+    
+    <!-- Word Selection Popup -->
+    <WordSelectionPopup
+      :isVisible="isWordPopupVisible"
+      :selectedWord="selectedWord"
+      :position="popupPosition"
+      :verseId="selectedVerseId"
+      :isAuthenticated="authStore.isAuthenticated.value"
+      @vajehyab="handleVajehyab"
+      @createNote="handleCreateNoteFromPopup"
+      @close="closeWordPopup"
+    />
     <div v-if="searchStore.isLoading" class="loading-state">
       <p>در حال جستجو...</p>
     </div>
@@ -83,7 +95,8 @@
                       'liked-verse': isVerseLiked(couplet.verseId),
                       'clickable': authStore.isAuthenticated.value
                     }"
-                    @click="handleVerseClick(couplet.verseId)"
+                    :data-verse-id="couplet.verseId"
+                    @dblclick.stop="handleDoubleClick"
                     v-html="highlightSearchQuery(couplet.text || '')"
                   ></div>
                   <button 
@@ -110,7 +123,8 @@
                         'liked-verse': isVerseLiked(getCoupletVerseId(couplet, 0)),
                         'clickable': authStore.isAuthenticated.value
                       }"
-                      @click="handleVerseClick(getCoupletVerseId(couplet, 0))"
+                      :data-verse-id="getCoupletVerseId(couplet, 0)"
+                      @dblclick.stop="handleDoubleClick"
                       v-html="highlightSearchQuery(getCoupletText(couplet, 0) || '')"
                     ></div>
                     <button 
@@ -135,7 +149,8 @@
                         'liked-verse': isVerseLiked(getCoupletVerseId(couplet, 1)),
                         'clickable': authStore.isAuthenticated.value
                       }"
-                      @click="handleVerseClick(getCoupletVerseId(couplet, 1))"
+                      :data-verse-id="getCoupletVerseId(couplet, 1)"
+                      @dblclick.stop="handleDoubleClick"
                       v-html="highlightSearchQuery(getCoupletText(couplet, 1) || '')"
                     ></div>
                     <button 
@@ -171,6 +186,8 @@
                       highlighted: couplet.text && couplet.text.includes(searchStore.searchQuery),
                       'liked-verse': isVerseLiked(couplet.verseId)
                     }"
+                    :data-verse-id="couplet.verseId"
+                    @dblclick.stop="handleDoubleClick"
                     v-html="highlightSearchQuery(couplet.text || '')"
                   ></div>
                   <button 
@@ -195,7 +212,8 @@
                       highlighted: getCoupletText(couplet, 0) && getCoupletText(couplet, 0).includes(searchStore.searchQuery),
                       'clickable': authStore.isAuthenticated.value
                     }"
-                    @click="handleVerseClick(getCoupletVerseId(couplet, 0))"
+                    :data-verse-id="getCoupletVerseId(couplet, 0)"
+                    @dblclick.stop="handleDoubleClick"
                     v-html="highlightSearchQuery(getCoupletText(couplet, 0) || '')"
                   ></div>
                   <button 
@@ -217,7 +235,8 @@
                       highlighted: getCoupletText(couplet, 1) && getCoupletText(couplet, 1).includes(searchStore.searchQuery),
                       'clickable': authStore.isAuthenticated.value
                     }"
-                    @click="handleVerseClick(getCoupletVerseId(couplet, 1))"
+                    :data-verse-id="getCoupletVerseId(couplet, 1)"
+                    @dblclick.stop="handleDoubleClick"
                     v-html="highlightSearchQuery(getCoupletText(couplet, 1) || '')"
                   ></div>
                   <button 
@@ -300,6 +319,8 @@ import { useAuthStore } from '../stores/auth.js'
 import { ApiService } from '../services/api.js'
 import { LikedVersesManager } from '../utils/likedVersesManager.js'
 import NoteModal from './NoteModal.vue'
+import WordSelectionPopup from './WordSelectionPopup.vue'
+import { handleDoubleClick as handleDoubleClickUtil, redirectToVajehyab } from '../utils/wordSelection.js'
 
 const router = useRouter()
 const searchStore = useSearchStore()
@@ -307,6 +328,11 @@ const authStore = useAuthStore()
 const pageInput = ref(searchStore.currentPage)
 const isNoteModalOpen = ref(false)
 const selectedVerseId = ref(null)
+
+// Word selection popup state
+const isWordPopupVisible = ref(false)
+const selectedWord = ref('')
+const popupPosition = ref({ x: 0, y: 0 })
 
 // Helper function to get couplet text (handles both old array format and new object format)
 const getCoupletText = (couplet, index) => {
@@ -639,11 +665,37 @@ const viewFullPoem = () => {
   router.push(`/poem/${currentPoem.value.id}`)
 }
 
-// Handle verse click to open note modal
-const handleVerseClick = (verseId) => {
+// Handle double-click for word selection
+const handleDoubleClick = (event) => {
+  const result = handleDoubleClickUtil(event)
+  
+  if (!result || !result.selectedWord) {
+    return
+  }
+  
+  selectedWord.value = result.selectedWord
+  popupPosition.value = result.position
+  selectedVerseId.value = result.verseId
+  isWordPopupVisible.value = true
+}
+
+// Handle vajehyab redirect
+const handleVajehyab = (word) => {
+  redirectToVajehyab(word)
+}
+
+// Handle create note from popup
+const handleCreateNoteFromPopup = (verseId) => {
   if (!verseId || !authStore.isAuthenticated.value) return
   selectedVerseId.value = verseId
   isNoteModalOpen.value = true
+}
+
+// Close word popup
+const closeWordPopup = () => {
+  isWordPopupVisible.value = false
+  selectedWord.value = ''
+  popupPosition.value = { x: 0, y: 0 }
 }
 
 // Close note modal
