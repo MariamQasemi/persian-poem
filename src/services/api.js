@@ -106,26 +106,30 @@ export class ApiService {
       console.log('Searching for:', query, 'with poets:', poetFilters, 'page:', page, 'limit:', limit, 'likedOnly:', likedOnly)
       
       // Build URL manually to ensure proper encoding
-      let url = `${API_BASE_URL}/search?`
+      const params = []
       
-      // Add query parameter
+      // Add query parameter (can be empty string if poets are selected)
       if (query) {
-        url += `q=${encodeURIComponent(query)}`
+        params.push(`q=${encodeURIComponent(query)}`)
       }
       
       // Add poet filter parameter
       if (poetFilters && poetFilters.length > 0) {
         const poetParam = poetFilters.join(',')
-        url += `&poet=${encodeURIComponent(poetParam)}`
+        params.push(`poet=${encodeURIComponent(poetParam)}`)
       }
       
       // Add liked poems filter parameter
       if (likedOnly) {
-        url += `&liked_only=true`
+        params.push('liked_only=true')
       }
       
-      // Add pagination parameters
-      url += `&limit=${limit}&offset=${(page - 1) * limit}`
+      // Add pagination parameters (always present)
+      params.push(`limit=${limit}`)
+      params.push(`offset=${(page - 1) * limit}`)
+      
+      // Build final URL
+      const url = `${API_BASE_URL}/search?${params.join('&')}`
       
       console.log('Final URL:', url)
       
@@ -285,50 +289,58 @@ export class ApiService {
           // Sort context_verses by vorder to ensure correct order
           const sortedContextVerses = [...verse.context_verses].sort((a, b) => a.vorder - b.vorder)
           
-          // Check if this is neo-poem (no position field) or classic-poem (has position field)
-          const isNeoPoem = !sortedContextVerses.some(v => v.position !== undefined && v.position !== null)
+          // Detect neo-poem type using explicit type fields when available
+          const isNeoPoem = (() => {
+            if (verse.type === 'neo_poem' || verse.poem_type === 'neo_poem') return true
+            if (verse.poem && (verse.poem.type === 'neo_poem' || verse.poem.poem_type === 'neo_poem')) return true
+            if (sortedContextVerses.some(v => v.type === 'neo_poem' || v.poem_type === 'neo_poem')) return true
+            // Fallback to position-based detection (legacy)
+            return !sortedContextVerses.some(v => v.position !== undefined && v.position !== null)
+          })()
           
-          // Find the matching verse (is_match: true)
-          const matchingVerse = sortedContextVerses.find(v => v.is_match === true)
           let filteredVerses
-          if (!matchingVerse) {
-            console.warn('No matching verse found in context_verses')
-            // Fallback: use all verses
+          
+          if (isNeoPoem) {
+            // Neo-poem: use ALL verses from context, sorted by vorder
             filteredVerses = sortedContextVerses
           } else {
-            const matchingIndex = sortedContextVerses.indexOf(matchingVerse)
-            const matchingPosition = matchingVerse.position
-            
-            // Determine how many verses before and after based on position
-            let versesBefore, versesAfter
-            // For neo-poem, always show 3 verses before + 2 after (or adjust as needed)
-            if (isNeoPoem || matchingPosition === undefined || matchingPosition === null) {
-              // Neo-poem: show 3 verses before + 2 after
-              versesBefore = 3
-              versesAfter = 2
-            } else if (matchingPosition === 1) {
-              // Position 1: 3 verses before + 2 verses after
-              versesBefore = 3
-              versesAfter = 2
-            } else if (matchingPosition === 0) {
-              // Position 0: 2 verses before + 3 verses after
-              versesBefore = 2
-              versesAfter = 3
+            // Classic-poem: find matching verse and build window around it
+            const matchingVerse = sortedContextVerses.find(v => v.is_match === true)
+            if (!matchingVerse) {
+              console.warn('No matching verse found in context_verses')
+              filteredVerses = sortedContextVerses
             } else {
-              // Position -1 (full-width): default to 2 before + 2 after
-              versesBefore = 2
-              versesAfter = 2
+              const matchingIndex = sortedContextVerses.indexOf(matchingVerse)
+              const matchingPosition = matchingVerse.position
+              
+              // Determine how many verses before and after based on position
+              let versesBefore, versesAfter
+              if (matchingPosition === 1) {
+                // Position 1: 3 verses before + 2 verses after
+                versesBefore = 3
+                versesAfter = 2
+              } else if (matchingPosition === 0) {
+                // Position 0: 2 verses before + 3 verses after
+                versesBefore = 2
+                versesAfter = 3
+              } else if (matchingPosition === -1) {
+                // Full-width line: show 2 before + 2 after
+                versesBefore = 2
+                versesAfter = 2
+              } else {
+                // Default window
+                versesBefore = 3
+                versesAfter = 2
+              }
+              
+              const startIndex = Math.max(0, matchingIndex - versesBefore)
+              const endIndex = Math.min(sortedContextVerses.length, matchingIndex + versesAfter + 1)
+              
+              filteredVerses = sortedContextVerses.slice(startIndex, endIndex)
+              
+              console.log(`Matching verse at index ${matchingIndex}, position ${matchingPosition}`)
+              console.log(`Showing ${startIndex} to ${endIndex} (${filteredVerses.length} verses)`)
             }
-            
-            // Calculate start and end indices
-            const startIndex = Math.max(0, matchingIndex - versesBefore)
-            const endIndex = Math.min(sortedContextVerses.length, matchingIndex + versesAfter + 1)
-            
-            // Filter verses based on position
-            filteredVerses = sortedContextVerses.slice(startIndex, endIndex)
-            
-            console.log(`Matching verse at index ${matchingIndex}, position ${matchingPosition}`)
-            console.log(`Showing ${startIndex} to ${endIndex} (${filteredVerses.length} verses)`)
           }
           
           // Group filtered verses by couplet, maintaining order based on vorder
@@ -338,9 +350,10 @@ export class ApiService {
           // Build couplets array maintaining order (for preview)
           const couplets = []
           
-          sortedVerses.forEach(verse => {
-            // Neo-poem: no position field - each verse is a full-width line
-            if (verse.position === undefined || verse.position === null) {
+          // Handle neo-poem and classic-poem differently
+          if (isNeoPoem) {
+            // Neo-poem: ignore position completely, each vorder is one full-width line
+            sortedVerses.forEach(verse => {
               couplets.push({ 
                 fullWidth: true, 
                 text: verse.text, 
@@ -348,30 +361,35 @@ export class ApiService {
                 verseId: verse.id,
                 isLiked: verse.is_liked || verse.liked || false
               })
-            } else if (verse.position === -1) {
-              // Classic-poem: Full-width line - add as separate entry
-              couplets.push({ 
-                fullWidth: true, 
-                text: verse.text, 
-                vorder: verse.vorder, 
-                verseId: verse.id,
-                isLiked: verse.is_liked || verse.liked || false
-              })
-            } else if (verse.position === 0) {
-              // Classic-poem: Start of couplet - find matching position 1 verse (next vorder)
-              const matchingVerse1 = sortedVerses.find(v => 
-                v.position === 1 && 
-                v.vorder === verse.vorder + 1
-              )
-              couplets.push({
-                text: [verse.text, matchingVerse1 ? matchingVerse1.text : ''],
-                verseIds: [verse.id, matchingVerse1 ? matchingVerse1.id : null],
-                verseLiked: [verse.is_liked || verse.liked || false, matchingVerse1 ? (matchingVerse1.is_liked || matchingVerse1.liked || false) : false],
-                vorder: verse.vorder
-              })
-            }
-            // Skip position 1 verses as they're handled with their position 0 partner
-          })
+            })
+          } else {
+            // Classic-poem: check position field
+            sortedVerses.forEach(verse => {
+              if (verse.position === -1) {
+                // Classic-poem: Full-width line - add as separate entry
+                couplets.push({ 
+                  fullWidth: true, 
+                  text: verse.text, 
+                  vorder: verse.vorder, 
+                  verseId: verse.id,
+                  isLiked: verse.is_liked || verse.liked || false
+                })
+              } else if (verse.position === 0) {
+                // Classic-poem: Start of couplet - find matching position 1 verse (next vorder)
+                const matchingVerse1 = sortedVerses.find(v => 
+                  v.position === 1 && 
+                  v.vorder === verse.vorder + 1
+                )
+                couplets.push({
+                  text: [verse.text, matchingVerse1 ? matchingVerse1.text : ''],
+                  verseIds: [verse.id, matchingVerse1 ? matchingVerse1.id : null],
+                  verseLiked: [verse.is_liked || verse.liked || false, matchingVerse1 ? (matchingVerse1.is_liked || matchingVerse1.liked || false) : false],
+                  vorder: verse.vorder
+                })
+              }
+              // Skip position 1 verses as they're handled with their position 0 partner
+            })
+          }
           
           // Always limit preview to exactly 3 display lines
           const previewCouplets = couplets.slice(0, 3)
@@ -380,37 +398,43 @@ export class ApiService {
           const allContextVersesSorted = [...sortedContextVerses].sort((a, b) => a.vorder - b.vorder)
           const allCouplets = []
           
-          allContextVersesSorted.forEach(verse => {
-            // Neo-poem: no position field - each verse is a full-width line
-            if (verse.position === undefined || verse.position === null) {
+          // Handle neo-poem and classic-poem differently
+          if (isNeoPoem) {
+            // Neo-poem: ignore position completely, each vorder is one full-width line
+            allContextVersesSorted.forEach(verse => {
               allCouplets.push({ 
                 fullWidth: true, 
                 text: verse.text, 
                 verseId: verse.id,
                 isLiked: verse.is_liked || verse.liked || false
               })
-            } else if (verse.position === -1) {
-              // Classic-poem: Full-width line counts as 1 display line
-              allCouplets.push({ 
-                fullWidth: true, 
-                text: verse.text, 
-                verseId: verse.id,
-                isLiked: verse.is_liked || verse.liked || false
-              })
-            } else if (verse.position === 0) {
-              // Classic-poem: Couplet (position 0 + 1) counts as 1 display line
-              const matchingVerse1 = allContextVersesSorted.find(v => 
-                v.position === 1 && 
-                v.vorder === verse.vorder + 1
-              )
-              allCouplets.push({
-                text: [verse.text, matchingVerse1 ? matchingVerse1.text : ''],
-                verseIds: [verse.id, matchingVerse1 ? matchingVerse1.id : null],
-                verseLiked: [verse.is_liked || verse.liked || false, matchingVerse1 ? (matchingVerse1.is_liked || matchingVerse1.liked || false) : false],
-                vorder: verse.vorder
-              })
-            }
-          })
+            })
+          } else {
+            // Classic-poem: check position field
+            allContextVersesSorted.forEach(verse => {
+              if (verse.position === -1) {
+                // Classic-poem: Full-width line counts as 1 display line
+                allCouplets.push({ 
+                  fullWidth: true, 
+                  text: verse.text, 
+                  verseId: verse.id,
+                  isLiked: verse.is_liked || verse.liked || false
+                })
+              } else if (verse.position === 0) {
+                // Classic-poem: Couplet (position 0 + 1) counts as 1 display line
+                const matchingVerse1 = allContextVersesSorted.find(v => 
+                  v.position === 1 && 
+                  v.vorder === verse.vorder + 1
+                )
+                allCouplets.push({
+                  text: [verse.text, matchingVerse1 ? matchingVerse1.text : ''],
+                  verseIds: [verse.id, matchingVerse1 ? matchingVerse1.id : null],
+                  verseLiked: [verse.is_liked || verse.liked || false, matchingVerse1 ? (matchingVerse1.is_liked || matchingVerse1.liked || false) : false],
+                  vorder: verse.vorder
+                })
+              }
+            })
+          }
           
           const totalDisplayLines = allCouplets.length
           const hasMoreThan3Lines = totalDisplayLines > 3
@@ -595,15 +619,34 @@ export class ApiService {
         // Sort verses by vorder to ensure correct order
         const sortedVerses = [...poemData.verses].sort((a, b) => a.vorder - b.vorder)
         
-        // Check if this is neo-poem (no position field) or classic-poem (has position field)
-        const isNeoPoem = !sortedVerses.some(v => v.position !== undefined && v.position !== null)
+        // Detect neo-poem type using explicit type fields when available
+        const isNeoPoem = (() => {
+          // First check explicit type fields
+          if (poemData.type === 'neo_poem' || poemData.poem_type === 'neo_poem') return true
+          if (sortedVerses.some(v => v.type === 'neo_poem' || v.poem_type === 'neo_poem')) return true
+          
+          // Check if all verses have position values that are not 0, 1, or -1 (classic positions)
+          // If positions are like 4, 5, etc., it's likely a neo-poem
+          const hasClassicPositions = sortedVerses.some(v => 
+            v.position === 0 || v.position === 1 || v.position === -1
+          )
+          
+          // If no classic positions found, treat as neo-poem
+          if (!hasClassicPositions && sortedVerses.some(v => v.position !== undefined && v.position !== null)) {
+            return true
+          }
+          
+          // Fallback: check if no position field at all
+          return !sortedVerses.some(v => v.position !== undefined && v.position !== null)
+        })()
         
         // Build couplets array maintaining order
         const couplets = []
         
-        sortedVerses.forEach(verse => {
-          // Neo-poem: no position field - each verse is a full-width line
-          if (verse.position === undefined || verse.position === null) {
+        // Handle neo-poem and classic-poem differently
+        if (isNeoPoem) {
+          // Neo-poem: ignore position completely, each vorder is one full-width line
+          sortedVerses.forEach(verse => {
             couplets.push({ 
               fullWidth: true, 
               text: verse.text, 
@@ -611,30 +654,45 @@ export class ApiService {
               verseId: verse.id,
               isLiked: verse.is_liked || verse.liked || false
             })
-          } else if (verse.position === -1) {
-            // Classic-poem: Full-width line - add as separate entry
-            couplets.push({ 
-              fullWidth: true, 
-              text: verse.text, 
-              vorder: verse.vorder, 
-              verseId: verse.id,
-              isLiked: verse.is_liked || verse.liked || false
-            })
-          } else if (verse.position === 0) {
-            // Classic-poem: Start of couplet - find matching position 1 verse (next vorder)
-            const matchingVerse1 = sortedVerses.find(v => 
-              v.position === 1 && 
-              v.vorder === verse.vorder + 1
-            )
-            couplets.push({
-              text: [verse.text, matchingVerse1 ? matchingVerse1.text : ''],
-              verseIds: [verse.id, matchingVerse1 ? matchingVerse1.id : null],
-              verseLiked: [verse.is_liked || verse.liked || false, matchingVerse1 ? (matchingVerse1.is_liked || matchingVerse1.liked || false) : false],
-              vorder: verse.vorder
-            })
-          }
-          // Skip position 1 verses as they're handled with their position 0 partner
-        })
+          })
+        } else {
+          // Classic-poem: check position field
+          sortedVerses.forEach(verse => {
+            if (verse.position === -1) {
+              // Classic-poem: Full-width line - add as separate entry
+              couplets.push({ 
+                fullWidth: true, 
+                text: verse.text, 
+                vorder: verse.vorder, 
+                verseId: verse.id,
+                isLiked: verse.is_liked || verse.liked || false
+              })
+            } else if (verse.position === 0) {
+              // Classic-poem: Start of couplet - find matching position 1 verse (next vorder)
+              const matchingVerse1 = sortedVerses.find(v => 
+                v.position === 1 && 
+                v.vorder === verse.vorder + 1
+              )
+              couplets.push({
+                text: [verse.text, matchingVerse1 ? matchingVerse1.text : ''],
+                verseIds: [verse.id, matchingVerse1 ? matchingVerse1.id : null],
+                verseLiked: [verse.is_liked || verse.liked || false, matchingVerse1 ? (matchingVerse1.is_liked || matchingVerse1.liked || false) : false],
+                vorder: verse.vorder
+              })
+            } else if (verse.position !== 1) {
+              // Handle other positions (like position 4 in some cases) as full-width lines
+              // Position 1 is skipped as it's handled with position 0
+              couplets.push({ 
+                fullWidth: true, 
+                text: verse.text, 
+                vorder: verse.vorder, 
+                verseId: verse.id,
+                isLiked: verse.is_liked || verse.liked || false
+              })
+            }
+            // Skip position 1 verses as they're handled with their position 0 partner
+          })
+        }
         
         poemData.couplets = couplets
       } else {

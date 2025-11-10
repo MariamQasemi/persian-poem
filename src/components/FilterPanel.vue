@@ -450,11 +450,11 @@ const clearAllFilters = async () => {
 }
 
 const applyFilters = async () => {
-  // Check if there's a search query from SearchBar
-  if (!searchStore.searchQuery.trim()) {
+  // Allow search if query is not empty OR poets are selected
+  if (!searchStore.searchQuery.trim() && searchStore.selectedPoets.length === 0) {
     // Show alert and trigger validation error
-    alert('لطفاً کلمه مورد نظر را وارد کنید')
-    searchStore.setError('لطفاً کلمه مورد نظر را وارد کنید')
+    alert('لطفاً کلمه مورد نظر را وارد کنید یا شاعری را انتخاب کنید')
+    searchStore.setError('لطفاً کلمه مورد نظر را وارد کنید یا شاعری را انتخاب کنید')
     return
   }
   

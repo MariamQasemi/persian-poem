@@ -15,7 +15,7 @@
       <button 
         @click="performSearch" 
         class="search-button"
-        :disabled="isLoading || !localQuery.trim()"
+        :disabled="isLoading || (!localQuery.trim() && searchStore.selectedPoets.length === 0)"
       >
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M21 21L16.514 16.506L21 21ZM19 10.5C19 15.194 15.194 19 10.5 19C5.806 19 2 15.194 2 10.5C2 5.806 5.806 2 10.5 2C15.194 2 19 5.806 19 10.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -50,7 +50,10 @@ const onInput = () => {
 }
 
 const performSearch = async () => {
-  if (!localQuery.value.trim()) return
+  // Allow search if query is not empty OR poets are selected
+  if (!localQuery.value.trim() && searchStore.selectedPoets.length === 0) {
+    return
+  }
   
   let response = null
   
@@ -59,7 +62,7 @@ const performSearch = async () => {
     searchStore.clearError()
     searchStore.resetPagination()
     
-    // IMPORTANT: Set the search query in the store
+    // IMPORTANT: Set the search query in the store (can be empty if poets are selected)
     searchStore.setSearchQuery(localQuery.value)
     
     // Get poet names from selected poet IDs
@@ -69,7 +72,9 @@ const performSearch = async () => {
     }).filter(name => name !== null)
     
     // Fetch first batch of results (50 poems)
-    response = await ApiService.searchPoems(localQuery.value, selectedPoetNames, {
+    // Pass empty string if query is empty but poets are selected
+    const searchQuery = localQuery.value.trim() || ''
+    response = await ApiService.searchPoems(searchQuery, selectedPoetNames, {
       page: 1,
       limit: 50
     })

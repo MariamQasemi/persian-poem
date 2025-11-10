@@ -650,6 +650,7 @@ const loadVerseInfo = async (verseId, noteData = null) => {
       verse_text: verseText, // Use verse text, not note text
       poem_id: verseData.poem_id || verseData.poem?.id || null,
       poem_title: verseData.poem_title || verseData.poem?.title || verseData.poem_name || '',
+      poem_category: verseData.poem_category || verseData.category || verseData.poem?.category || null,
       poet_id: verseData.poet_id || verseData.poet?.id || null,
       poet_name: verseData.poet_name || verseData.poet?.name || verseData.poet || ''
     }

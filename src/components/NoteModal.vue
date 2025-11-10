@@ -277,7 +277,9 @@ const loadVerseInfo = async () => {
       verse_text: verseData.text || verseData.verse_text || '',
       poem_id: verseData.poem_id || verseData.poem?.id,
       poem_title: verseData.poem_title || verseData.poem?.title || verseData.poem_name || '',
-      poet_name: verseData.poet_name || verseData.poet?.name || verseData.poet || ''
+      poet_id: verseData.poet_id || verseData.poet?.id || null,
+      poet_name: verseData.poet_name || verseData.poet?.name || verseData.poet || '',
+      poem_category: verseData.poem_category || verseData.category || verseData.poem?.category || null
     }
     
     verseInfo.value = normalized
@@ -429,6 +431,8 @@ const handleSubmit = async () => {
       }
     }
 
+    const verseMeta = verseInfo.value || {}
+
     const noteData = {
       title: form.value.title.trim(),
       text: form.value.text.trim(),
@@ -436,7 +440,12 @@ const handleSubmit = async () => {
       writer: currentUser.value?.name || currentUser.value?.full_name || currentUser.value?.username || 'نویسنده',
       related_verse_id: selectedVerseId.value || null,
       file_url: fileUrl,
-      file_type: fileType
+      file_type: fileType,
+      poet_name: verseMeta.poet_name || null,
+      poet_id: verseMeta.poet_id || null,
+      poem_title: verseMeta.poem_title || null,
+      poem_id: verseMeta.poem_id || null,
+      poem_category: verseMeta.poem_category || null
     }
 
     // Remove null/empty fields
@@ -447,6 +456,11 @@ const handleSubmit = async () => {
       delete noteData.file_url
       delete noteData.file_type
     }
+    if (!noteData.poet_id) delete noteData.poet_id
+    if (!noteData.poet_name) delete noteData.poet_name
+    if (!noteData.poem_id) delete noteData.poem_id
+    if (!noteData.poem_title) delete noteData.poem_title
+    if (!noteData.poem_category) delete noteData.poem_category
 
     if (!noteData.title) {
       error.value = 'عنوان الزامی است'

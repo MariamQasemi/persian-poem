@@ -275,6 +275,7 @@ const loadVerseInfoForNote = async (verseId, noteData = null) => {
         verse_text: verse.text || '',
         poem_id: noteData.poem_id || null,
         poem_title: noteData.poem_title || noteData.poem_name || null,
+        poem_category: noteData.poem_category || noteData.category || null,
         poet_id: noteData.poet_id || null,
         poet_name: noteData.poet_name || noteData.poet || null
       }
@@ -293,6 +294,7 @@ const loadVerseInfoForNote = async (verseId, noteData = null) => {
       verse_text: verseData.text || verseData.verse_text || '',
       poem_id: verseData.poem_id || verseData.poem?.id,
       poem_title: verseData.poem_title || verseData.poem?.title || verseData.poem_name || '',
+      poem_category: verseData.poem_category || verseData.category || verseData.poem?.category || null,
       poet_id: verseData.poet_id || verseData.poet?.id,
       poet_name: verseData.poet_name || verseData.poet?.name || verseData.poet || ''
     }
