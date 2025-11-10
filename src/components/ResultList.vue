@@ -1054,7 +1054,7 @@ onMounted(() => {
 }
 
 .poetry-line.liked-verse::before {
-  content: '';
+  content: '❤️';
   position: absolute;
   right: 5px;
   top: 50%;
