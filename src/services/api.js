@@ -1,4 +1,6 @@
 // API service for backend communication
+import { setVerseInfo } from '../utils/verseCache.js'
+
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
   ? '/api'  // Production: use relative path
   : '/api'  // Development: use proxy, but we can also try direct
@@ -240,10 +242,45 @@ export class ApiService {
         poetNameToId[poet.name] = poet.id
       })
       
+      // Helper function to cache verse info
+      const cacheVerseInfo = (verseObj, poemData = null) => {
+        if (!verseObj || !verseObj.id || !verseObj.text) {
+          return // Skip if verse doesn't have required fields
+        }
+        
+        // Normalize verse data structure for caching
+        const normalized = {
+          verse_id: verseObj.id,
+          verse_text: verseObj.text || '',
+          poem_id: poemData?.poem_id || verseObj.poem_id || null,
+          poem_title: poemData?.poem_title || poemData?.poem_name || verseObj.poem_title || verseObj.poem_name || null,
+          poet_id: poemData?.poet_id || verseObj.poet_id || null,
+          poet_name: poemData?.poet_name || poemData?.poet || verseObj.poet_name || verseObj.poet || null
+        }
+        
+        // Cache the verse info
+        setVerseInfo(verseObj.id, normalized)
+      }
+      
       // Transform verses array to match our expected format
       const transformedResults = verses.map(verse => {
         // Check if this is the new structure (has context_verses)
         if (verse.context_verses && Array.isArray(verse.context_verses)) {
+          // Prepare poem data for caching
+          const poemData = {
+            poem_id: verse.poem_id,
+            poem_title: verse.poem_title,
+            poem_name: verse.poem_name,
+            poet_id: poetNameToId[verse.poet] || null,
+            poet_name: verse.poet,
+            poet: verse.poet
+          }
+          
+          // Cache all verses from context_verses array
+          verse.context_verses.forEach(contextVerse => {
+            cacheVerseInfo(contextVerse, poemData)
+          })
+          
           // New structure: build couplets from context_verses
           // Sort context_verses by vorder to ensure correct order
           const sortedContextVerses = [...verse.context_verses].sort((a, b) => a.vorder - b.vorder)
@@ -399,6 +436,18 @@ export class ApiService {
         } else {
           // Old structure: fallback for backwards compatibility
           console.log('Using old structure fallback')
+          
+          // Cache verse info for old structure
+          const poemData = {
+            poem_id: verse.poem_id || verse.id,
+            poem_title: verse.poem_title || verse.title,
+            poem_name: verse.poem_name || verse.title,
+            poet_id: poetNameToId[verse.poet] || null,
+            poet_name: verse.poet,
+            poet: verse.poet
+          }
+          cacheVerseInfo(verse, poemData)
+          
           const coupletsRaw = (verse.text || '').split('\n').filter(line => line.trim() !== '')
           
           const couplets = coupletsRaw.map(couplet => {
