@@ -790,6 +790,7 @@ onUnmounted(() => {
   max-height: calc(100vh - 400px);
   overflow-y: auto;
   padding-right: 5px;
+  padding-bottom: 100px;
 }
 
 .poet-list-separator {

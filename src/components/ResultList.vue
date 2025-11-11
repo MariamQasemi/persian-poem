@@ -334,6 +334,9 @@ const isWordPopupVisible = ref(false)
 const selectedWord = ref('')
 const popupPosition = ref({ x: 0, y: 0 })
 
+// Reactive state for liked verses (for instant UI updates)
+const likedVerses = ref(new Set())
+
 // Helper function to get couplet text (handles both old array format and new object format)
 const getCoupletText = (couplet, index) => {
   if (couplet.fullWidth) {
@@ -362,16 +365,25 @@ const getCoupletVerseId = (couplet, index) => {
   return null
 }
 
-// Check if verse is liked
+// Check if verse is liked (uses reactive state for instant UI updates)
 const isVerseLiked = (verseId) => {
-  return LikedVersesManager.isVerseLiked(verseId)
+  if (!verseId) return false
+  return likedVerses.value.has(String(verseId))
 }
 
 // Toggle like for a verse
 const toggleLikeVerse = async (verseId) => {
   if (!verseId || !authStore.isAuthenticated.value) return
   
-  const isLiked = LikedVersesManager.isVerseLiked(verseId)
+  const isLiked = likedVerses.value.has(String(verseId))
+  const verseIdStr = String(verseId)
+  
+  // Optimistically update UI immediately
+  if (isLiked) {
+    likedVerses.value.delete(verseIdStr)
+  } else {
+    likedVerses.value.add(verseIdStr)
+  }
   
   try {
     if (isLiked) {
@@ -385,6 +397,12 @@ const toggleLikeVerse = async (verseId) => {
     }
   } catch (err) {
     console.error('Error toggling like:', err)
+    // Revert optimistic update on error
+    if (isLiked) {
+      likedVerses.value.add(verseIdStr)
+    } else {
+      likedVerses.value.delete(verseIdStr)
+    }
     alert(isLiked ? 'خطا در حذف لایک بیت. لطفاً دوباره تلاش کنید.' : 'خطا در لایک کردن بیت. لطفاً دوباره تلاش کنید.')
   }
 }
@@ -422,14 +440,20 @@ const coupletsPreview = computed(() => {
 })
 
 // Initialize liked verses from current poem data
-// This syncs API data with localStorage
+// This syncs API data with localStorage and reactive state
 const initializeLikedVerses = () => {
   if (!currentPoem.value || !currentPoem.value.couplets) {
+    // Still initialize from localStorage even if no poem data
+    const likedVersesFromStorage = LikedVersesManager.getLikedVerses()
+    likedVerses.value = new Set(likedVersesFromStorage)
     return
   }
   
   // Sync liked verses from API response with localStorage
   LikedVersesManager.syncFromPoemData(currentPoem.value)
+  // Update reactive state from localStorage
+  const likedVersesFromStorage = LikedVersesManager.getLikedVerses()
+  likedVerses.value = new Set(likedVersesFromStorage)
 }
 
 // Loading state for fetching more results
@@ -712,8 +736,9 @@ const handleNoteCreated = (note) => {
 
 // Load liked verses from localStorage on component mount
 onMounted(() => {
-  const likedVerses = LikedVersesManager.getLikedVerses()
-  console.log('📖 Loaded liked verses from localStorage:', likedVerses.size, 'verses')
+  const likedVersesFromStorage = LikedVersesManager.getLikedVerses()
+  likedVerses.value = new Set(likedVersesFromStorage)
+  console.log('📖 Loaded liked verses from localStorage:', likedVerses.value.size, 'verses')
 })
 </script>
 

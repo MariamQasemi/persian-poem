@@ -365,6 +365,9 @@ const isWordPopupVisible = ref(false)
 const selectedWord = ref('')
 const popupPosition = ref({ x: 0, y: 0 })
 
+// Reactive state for liked verses (for instant UI updates)
+const likedVerses = ref(new Set())
+
 // Get search query from store for highlighting
 const searchQuery = computed(() => searchStore.searchQuery)
 
@@ -396,16 +399,25 @@ const getCoupletVerseId = (couplet, index) => {
   return null
 }
 
-// Check if verse is liked
+// Check if verse is liked (uses reactive state for instant UI updates)
 const isVerseLiked = (verseId) => {
-  return LikedVersesManager.isVerseLiked(verseId)
+  if (!verseId) return false
+  return likedVerses.value.has(String(verseId))
 }
 
 // Toggle like for a verse
 const toggleLikeVerse = async (verseId) => {
   if (!verseId || !authStore.isAuthenticated.value) return
   
-  const isLiked = LikedVersesManager.isVerseLiked(verseId)
+  const isLiked = likedVerses.value.has(String(verseId))
+  const verseIdStr = String(verseId)
+  
+  // Optimistically update UI immediately
+  if (isLiked) {
+    likedVerses.value.delete(verseIdStr)
+  } else {
+    likedVerses.value.add(verseIdStr)
+  }
   
   try {
     if (isLiked) {
@@ -419,6 +431,12 @@ const toggleLikeVerse = async (verseId) => {
     }
   } catch (err) {
     console.error('Error toggling like:', err)
+    // Revert optimistic update on error
+    if (isLiked) {
+      likedVerses.value.add(verseIdStr)
+    } else {
+      likedVerses.value.delete(verseIdStr)
+    }
     alert(isLiked ? 'خطا در حذف لایک بیت. لطفاً دوباره تلاش کنید.' : 'خطا در لایک کردن بیت. لطفاً دوباره تلاش کنید.')
   }
 }
@@ -442,8 +460,10 @@ const loadPoem = async () => {
     // Sync liked verses from API response with localStorage
     if (poemData.couplets) {
       LikedVersesManager.syncFromPoemData(poemData)
-      const likedVerses = LikedVersesManager.getLikedVerses()
-      console.log('Initialized liked verses from API and localStorage:', Array.from(likedVerses))
+      const likedVersesFromStorage = LikedVersesManager.getLikedVerses()
+      // Initialize reactive state from localStorage
+      likedVerses.value = new Set(likedVersesFromStorage)
+      console.log('Initialized liked verses from API and localStorage:', Array.from(likedVerses.value))
     }
   } catch (err) {
     console.error('Error loading poem:', err)
@@ -684,6 +704,10 @@ const playVoiceNote = async (verseId) => {
 }
 
 onMounted(async () => {
+  // Initialize liked verses from localStorage as fallback
+  const likedVersesFromStorage = LikedVersesManager.getLikedVerses()
+  likedVerses.value = new Set(likedVersesFromStorage)
+  
   await loadPoem()
   // Load notes after poem is loaded
   if (authStore.isAuthenticated.value) {
